@@ -18,7 +18,7 @@ function Navbar({ apiKey, onOpenSettings }) {
       className="fixed top-0 inset-x-0 z-40 border-b border-[#1e1e2e]"
       style={{ background: 'rgba(10,10,15,0.88)', backdropFilter: 'blur(14px)', WebkitBackdropFilter: 'blur(14px)' }}
     >
-      <div className="max-w-5xl mx-auto px-4 sm:px-6 h-14 flex items-center justify-between">
+      <div style={{ maxWidth: '1200px', margin: '0 auto', display: 'flex', alignItems: 'center', justifyContent: 'space-between', height: '100%', padding: '0 24px' }}>
         <a href="#" className="flex items-center gap-2.5 select-none">
           <span className="text-xl">⚔️</span>
           <span className="font-bold text-white tracking-tight text-base">DebateAI</span>
@@ -90,10 +90,7 @@ function Hero({ apiKey }) {
   }
 
   return (
-    <section
-      className="relative overflow-hidden"
-      style={{ paddingTop: apiKey ? '100px' : '140px', paddingBottom: '80px' }}
-    >
+    <section style={{ position: 'relative', overflow: 'hidden' }}>
       {/* Grid */}
       <div
         className="pointer-events-none absolute inset-0"
@@ -111,7 +108,7 @@ function Hero({ apiKey }) {
         style={{ width: '600px', height: '300px', top: '25%', left: '50%', transform: 'translateX(-50%)', background: 'radial-gradient(ellipse, rgba(59,130,246,0.08) 0%, transparent 70%)', filter: 'blur(40px)' }}
       />
 
-      <div className="relative z-10 text-center px-4 sm:px-6 max-w-3xl mx-auto w-full">
+      <div style={{ position: 'relative', zIndex: 10, textAlign: 'center', display: 'flex', flexDirection: 'column', alignItems: 'center', paddingTop: '100px', paddingBottom: '40px', paddingLeft: '24px', paddingRight: '24px', maxWidth: '800px', margin: '0 auto' }}>
         <div
           className="inline-flex items-center gap-2 px-3 py-1 rounded-full border text-xs text-gray-400 mb-8"
           style={{ borderColor: '#1e1e2e', background: 'rgba(30,30,46,0.6)' }}
@@ -188,24 +185,20 @@ function HowItWorks() {
     { step: '03', title: 'Improve & win', body: 'Defend your position or let the AI coach rewrite your argument. Learn what makes arguments bulletproof.', accent: '#22c55e', icon: '🏆' },
   ]
   return (
-    <section className="py-20 px-4 sm:px-6" style={{ borderTop: '1px solid #1e1e2e' }}>
-      <div className="max-w-5xl mx-auto">
-        <p className="text-center text-xs font-semibold tracking-[0.2em] text-[#3b82f6] uppercase mb-12">
+    <section style={{ borderTop: '1px solid #1e1e2e' }}>
+      <div style={{ maxWidth: '900px', margin: '0 auto', padding: '60px 24px' }}>
+        <p style={{ textAlign: 'center', fontSize: '0.75rem', fontWeight: 600, letterSpacing: '0.2em', color: '#3b82f6', textTransform: 'uppercase', marginBottom: '3rem' }}>
           How It Works
         </p>
-        <div className="grid sm:grid-cols-3 gap-4">
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: '1rem' }}>
           {cards.map((card) => (
             <div
               key={card.step}
-              className="relative rounded-2xl p-6 overflow-hidden"
-              style={{ background: '#13131a', border: '1px solid #1e1e2e', borderTop: `3px solid ${card.accent}` }}
+              style={{ background: '#13131a', border: '1px solid #1e1e2e', borderTop: `3px solid ${card.accent}`, borderRadius: '1rem', padding: '1.5rem' }}
             >
-              <span className="absolute top-4 right-5 font-black select-none" style={{ fontSize: '3.5rem', color: `${card.accent}12`, lineHeight: 1 }}>
-                {card.step}
-              </span>
-              <span className="text-2xl mb-4 block">{card.icon}</span>
-              <h3 className="font-semibold text-white text-base mb-2">{card.title}</h3>
-              <p className="text-sm text-gray-500 leading-relaxed">{card.body}</p>
+              <span style={{ fontSize: '1.5rem', display: 'block', marginBottom: '1rem' }}>{card.icon}</span>
+              <h3 style={{ fontWeight: 600, color: '#ffffff', fontSize: '1rem', marginBottom: '0.5rem' }}>{card.title}</h3>
+              <p style={{ fontSize: '0.875rem', color: '#6b7280', lineHeight: 1.6 }}>{card.body}</p>
             </div>
           ))}
         </div>
@@ -245,14 +238,14 @@ export default function App() {
   const [settingsOpen, setSettingsOpen] = useState(false)
 
   return (
-    <div className="min-h-screen" style={{ background: '#0a0a0f', color: '#e5e7eb' }}>
+    <div style={{ minHeight: '100vh', background: '#0a0a0f', color: '#f8fafc' }}>
       <Navbar apiKey={apiKey} onOpenSettings={() => setSettingsOpen(true)} />
 
       <Hero apiKey={apiKey} />
 
-      <section id="arena" className="py-16 sm:py-20 px-4 sm:px-6" style={{ borderTop: '1px solid #1e1e2e' }}>
-        <div className="max-w-[860px] mx-auto space-y-8">
-          <p className="text-center text-xs font-semibold tracking-[0.2em] text-[#3b82f6] uppercase">
+      <section id="arena" style={{ borderTop: '1px solid #1e1e2e' }}>
+        <div style={{ maxWidth: '860px', margin: '0 auto', padding: '40px 24px 80px' }}>
+          <p style={{ textAlign: 'center', fontSize: '0.75rem', fontWeight: 600, letterSpacing: '0.2em', color: '#3b82f6', textTransform: 'uppercase', marginBottom: '2rem' }}>
             Argument Arena
           </p>
           <ArgumentArena apiKey={apiKey} onNeedSettings={() => setSettingsOpen(true)} />

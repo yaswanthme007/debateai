@@ -250,7 +250,7 @@ export default function ArgumentArena({ apiKey, onNeedSettings }) {
     result?.counterarguments?.[0] ?? result?.defenses?.[0] ?? result?.rewritten_argument ?? null
 
   return (
-    <div className="space-y-5">
+    <div className="space-y-5" style={{ width: '100%' }}>
       {/* Mode selector */}
       <ModeSelector currentMode={mode} onModeChange={setMode} />
 
@@ -295,7 +295,7 @@ export default function ArgumentArena({ apiKey, onNeedSettings }) {
                 onChange={handleClaimChange}
                 onKeyDown={handleKeyDown}
                 placeholder="Enter any claim, opinion, or argument to analyze..."
-                style={{ minHeight: '120px', maxHeight: '300px', resize: 'none' }}
+                style={{ width: '100%', minHeight: '120px', maxHeight: '300px', resize: 'none' }}
                 className="w-full px-4 py-3 pb-8 rounded-xl text-sm text-gray-200 leading-relaxed bg-[#0a0a0f] border border-[#1e1e2e] placeholder-gray-600 outline-none transition-all duration-200 focus:border-[#3b82f6]"
               />
 
