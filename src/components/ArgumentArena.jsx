@@ -18,7 +18,7 @@ function getScore(mode, result) {
   if (!result) return null
   if (mode === 'attack') return result.strength_score ?? null
   if (mode === 'defend') return result.improved_score ?? null
-  if (mode === 'coach') return result.new_score ?? null
+  if (mode === 'coach')  return result.new_score ?? null
   return null
 }
 
@@ -26,9 +26,7 @@ function reducedMotion() {
   return typeof window !== 'undefined' && window.matchMedia('(prefers-reduced-motion: reduce)').matches
 }
 
-function dur(ms) {
-  return reducedMotion() ? 0 : ms
-}
+function dur(ms) { return reducedMotion() ? 0 : ms }
 
 // ─── Typewriter text ──────────────────────────────────────────────────────────
 
@@ -39,42 +37,55 @@ function TypewriterText({ text, delay = 0, speed = 11 }) {
       {displayText}
       {!isDone && (
         <span
-          className="inline-block w-[2px] bg-current opacity-60 animate-pulse ml-px"
-          style={{ height: '0.85em', verticalAlign: 'text-bottom' }}
+          style={{ display: 'inline-block', width: 2, background: 'currentColor', opacity: 0.6, marginLeft: 2, height: '0.85em', verticalAlign: 'text-bottom', animation: 'arena-pulse 0.8s infinite' }}
         />
       )}
     </>
   )
 }
 
-// ─── Sub-components ───────────────────────────────────────────────────────────
+// ─── Score badge ──────────────────────────────────────────────────────────────
 
 function ScoreBadge({ score }) {
   if (score === null || score === undefined) return null
-  const color = score <= 25 ? '#f87171' : score <= 50 ? '#fbbf24' : score <= 75 ? '#60a5fa' : '#4ade80'
+  const color = score <= 25 ? 'var(--red-light)' : score <= 50 ? 'var(--amber-light)' : score <= 75 ? 'var(--blue-light)' : 'var(--green-light)'
+  const raw   = score <= 25 ? '#E05040' : score <= 50 ? '#F5C044' : score <= 75 ? '#4A8FD4' : '#38AE72'
   return (
     <span
-      className="text-xs font-bold tabular-nums px-2 py-0.5 rounded-full shrink-0"
-      style={{ color, background: `${color}18`, border: `1px solid ${color}35` }}
+      style={{
+        fontFamily: 'var(--font-mono)', fontSize: 11, fontWeight: 700,
+        padding: '2px 8px', borderRadius: 3, flexShrink: 0,
+        color, background: `${raw}14`, border: `1px solid ${raw}30`,
+      }}
     >
       {score}/100
     </span>
   )
 }
 
+// ─── Mode badge ───────────────────────────────────────────────────────────────
+
 function ModeBadge({ mode }) {
-  const styles = {
-    attack: 'text-red-400 bg-red-900/25 border-red-800/40',
-    defend: 'text-blue-400 bg-blue-900/25 border-blue-800/40',
-    coach: 'text-green-400 bg-green-900/25 border-green-800/40',
+  const cfg = {
+    attack: { color: 'var(--red-light)',   raw: '#E05040', label: '⚔ Attack' },
+    defend: { color: 'var(--blue-light)',  raw: '#4A8FD4', label: '🛡 Defend' },
+    coach:  { color: 'var(--green-light)', raw: '#38AE72', label: '🎯 Coach'  },
   }
-  const labels = { attack: '⚔️ Attack', defend: '🛡️ Defend', coach: '🎯 Coach' }
+  const c = cfg[mode] ?? cfg.attack
   return (
-    <span className={`text-xs font-medium px-2 py-0.5 rounded-full border shrink-0 ${styles[mode] ?? styles.attack}`}>
-      {labels[mode] ?? mode}
+    <span
+      style={{
+        fontFamily: 'var(--font-ui)', fontSize: 10, fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase',
+        padding: '3px 8px', borderRadius: 3, flexShrink: 0,
+        color: c.color, background: `${c.raw}12`, border: `1px solid ${c.raw}28`,
+      }}
+    >
+      {c.label}
     </span>
   )
 }
+
+// ─── History card ─────────────────────────────────────────────────────────────
 
 function HistoryCard({ entry, index }) {
   const [expanded, setExpanded] = useState(false)
@@ -85,20 +96,23 @@ function HistoryCard({ entry, index }) {
       initial={{ opacity: 0, y: 8 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ delay: index * 0.06, duration: dur(0.25) }}
-      className="rounded-xl border border-[#1e1e2e] overflow-hidden"
-      style={{ background: '#0f0f14' }}
+      style={{ borderRadius: 8, border: '1px solid var(--border-mid)', overflow: 'hidden', background: 'var(--bg-card)' }}
     >
       <button
-        onClick={() => setExpanded((v) => !v)}
-        className="w-full flex items-center gap-3 px-4 min-h-[48px] text-left hover:bg-[#13131a] transition-colors"
+        onClick={() => setExpanded(v => !v)}
+        style={{
+          width: '100%', display: 'flex', alignItems: 'center', gap: 10, padding: '0 14px', minHeight: 46,
+          textAlign: 'left', background: 'transparent', border: 'none', cursor: 'pointer', transition: 'background 0.15s',
+        }}
+        onMouseEnter={e => e.currentTarget.style.background = 'var(--bg-raised)'}
+        onMouseLeave={e => e.currentTarget.style.background = 'transparent'}
       >
-        <span className="flex-1 text-xs text-gray-500 truncate min-w-0">{entry.claim}</span>
+        <span style={{ flex: 1, fontFamily: 'var(--font-body)', fontSize: 13, color: 'var(--cream-dim)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', minWidth: 0 }}>
+          {entry.claim}
+        </span>
         <ScoreBadge score={score} />
         <ModeBadge mode={entry.mode} />
-        <span
-          className="text-gray-600 text-[10px] shrink-0 transition-transform duration-200"
-          style={{ transform: expanded ? 'rotate(180deg)' : 'none' }}
-        >▼</span>
+        <span style={{ color: 'var(--muted)', fontSize: 9, flexShrink: 0, transition: 'transform 0.2s', transform: expanded ? 'rotate(180deg)' : 'none' }}>▼</span>
       </button>
 
       <AnimatePresence initial={false}>
@@ -109,27 +123,27 @@ function HistoryCard({ entry, index }) {
             animate={{ height: 'auto', opacity: 1 }}
             exit={{ height: 0, opacity: 0 }}
             transition={{ duration: dur(0.2), ease: 'easeInOut' }}
-            className="overflow-hidden"
+            style={{ overflow: 'hidden' }}
           >
-            <div className="px-4 pb-4 pt-3 space-y-3 border-t border-[#1e1e2e]">
-              <p className="text-xs text-gray-400 leading-relaxed">{entry.claim}</p>
+            <div style={{ padding: '14px 16px 16px', borderTop: '1px solid var(--border)', display: 'flex', flexDirection: 'column', gap: 10 }}>
+              <p style={{ fontFamily: 'var(--font-body)', fontSize: 14, color: 'var(--cream-dim)', lineHeight: 1.5 }}>{entry.claim}</p>
               {entry.mode === 'attack' && entry.result.counterarguments?.[0] && (
-                <div className="p-3 rounded-lg text-xs text-gray-300 leading-relaxed" style={{ background: '#0a0606', borderLeft: '2px solid #ef4444' }}>
+                <div style={{ padding: '10px 14px', borderRadius: 6, borderLeft: '3px solid var(--red)', background: 'var(--red-subtle)', fontFamily: 'var(--font-body)', fontSize: 13, color: 'var(--cream-dim)', lineHeight: 1.55 }}>
                   {entry.result.counterarguments[0]}
                 </div>
               )}
               {entry.mode === 'defend' && entry.result.defenses?.[0] && (
-                <div className="p-3 rounded-lg text-xs text-gray-300 leading-relaxed" style={{ background: '#05080f', borderLeft: '2px solid #3b82f6' }}>
+                <div style={{ padding: '10px 14px', borderRadius: 6, borderLeft: '3px solid var(--blue)', background: 'var(--blue-subtle)', fontFamily: 'var(--font-body)', fontSize: 13, color: 'var(--cream-dim)', lineHeight: 1.55 }}>
                   {entry.result.defenses[0]}
                 </div>
               )}
               {entry.mode === 'coach' && entry.result.rewritten_argument && (
-                <div className="p-3 rounded-lg text-xs text-gray-300 leading-relaxed" style={{ background: '#050a05', borderLeft: '2px solid #22c55e' }}>
+                <div style={{ padding: '10px 14px', borderRadius: 6, borderLeft: '3px solid var(--green)', background: 'var(--green-subtle)', fontFamily: 'var(--font-body)', fontSize: 13, color: 'var(--cream-dim)', lineHeight: 1.55 }}>
                   {entry.result.rewritten_argument}
                 </div>
               )}
               {(entry.result.verdict || entry.result.coaching_tip) && (
-                <p className="text-xs text-gray-600 italic">
+                <p style={{ fontFamily: 'var(--font-body)', fontSize: 13, fontStyle: 'italic', color: 'var(--muted-light)' }}>
                   &ldquo;{entry.result.verdict ?? entry.result.coaching_tip}&rdquo;
                 </p>
               )}
@@ -141,18 +155,33 @@ function HistoryCard({ entry, index }) {
   )
 }
 
+// ─── Skeleton ─────────────────────────────────────────────────────────────────
+
 function AnalyzingSkeleton() {
   return (
-    <div className="rounded-2xl border border-[#1e1e2e] p-5 space-y-4" style={{ background: '#13131a' }}>
-      <div className="animate-pulse space-y-4">
-        <div className="h-5 rounded-full bg-[#1e1e2e] w-2/5" />
-        <div className="h-2.5 rounded-full bg-[#1e1e2e] w-full" />
+    <div style={{ borderRadius: 10, border: '1px solid var(--border-mid)', padding: 20, background: 'var(--bg-card)', display: 'flex', flexDirection: 'column', gap: 16 }}>
+      <div style={{ animation: 'pulse 1.5s ease-in-out infinite', display: 'flex', flexDirection: 'column', gap: 14 }}>
+        <style>{`@keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.4} }`}</style>
+        <div style={{ height: 18, borderRadius: 3, background: 'var(--bg-raised)', width: '38%' }} />
+        <div style={{ height: 10, borderRadius: 3, background: 'var(--bg-raised)', width: '100%' }} />
         {[1, 0.8, 0.65].map((op, i) => (
-          <div key={i} className="h-16 rounded-xl bg-[#1e1e2e]" style={{ opacity: op }} />
+          <div key={i} style={{ height: 64, borderRadius: 6, background: 'var(--bg-raised)', opacity: op }} />
         ))}
-        <div className="h-4 rounded-full bg-[#1e1e2e] w-1/3" />
+        <div style={{ height: 14, borderRadius: 3, background: 'var(--bg-raised)', width: '30%' }} />
       </div>
     </div>
+  )
+}
+
+// ─── Spinner ──────────────────────────────────────────────────────────────────
+
+function Spinner() {
+  return (
+    <svg style={{ width: 16, height: 16, flexShrink: 0, animation: 'spin 0.8s linear infinite' }} viewBox="0 0 24 24" fill="none">
+      <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
+      <circle cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" style={{ opacity: 0.25 }} />
+      <path fill="currentColor" style={{ opacity: 0.75 }} d="M4 12a8 8 0 018-8V0C5.4 0 0 5.4 0 12h4z" />
+    </svg>
   )
 }
 
@@ -165,10 +194,9 @@ export default function ArgumentArena({ apiKey, onNeedSettings }) {
   const [compareMode, setCompareMode] = useState(false)
   const [countdown, setCountdown] = useState(null)
 
-  const textareaRef = useRef(null)
+  const textareaRef    = useRef(null)
   const scrollAnchorRef = useRef(null)
 
-  // Auto-resize textarea whenever claim changes
   useEffect(() => {
     const el = textareaRef.current
     if (!el) return
@@ -176,42 +204,31 @@ export default function ArgumentArena({ apiKey, onNeedSettings }) {
     el.style.height = `${Math.min(el.scrollHeight, 300)}px`
   }, [claim])
 
-  // Scroll to results when they arrive
   useEffect(() => {
     if (result && scrollAnchorRef.current) {
-      setTimeout(() => {
-        scrollAnchorRef.current?.scrollIntoView({ behavior: 'smooth', block: 'nearest' })
-      }, 150)
+      setTimeout(() => scrollAnchorRef.current?.scrollIntoView({ behavior: 'smooth', block: 'nearest' }), 150)
     }
   }, [result])
 
-  // Rate-limit countdown: reset on error type change
   useEffect(() => {
     if (error?.type === 'rate_limit') setCountdown(10)
     else setCountdown(null)
   }, [error?.type])
 
-  // Decrement countdown every second
   useEffect(() => {
     if (!countdown || countdown <= 0) return
-    const id = setTimeout(() => setCountdown((c) => c - 1), 1000)
+    const id = setTimeout(() => setCountdown(c => c - 1), 1000)
     return () => clearTimeout(id)
   }, [countdown])
 
-  // Auto-open settings on no_api_key error
   useEffect(() => {
     if (error?.type === 'no_api_key') onNeedSettings?.()
   }, [error?.type, onNeedSettings])
 
-  function handleClaimChange(e) {
-    setClaim(e.target.value.slice(0, MAX_CHARS))
-  }
+  function handleClaimChange(e) { setClaim(e.target.value.slice(0, MAX_CHARS)) }
 
   function handleKeyDown(e) {
-    if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') {
-      e.preventDefault()
-      submit()
-    }
+    if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') { e.preventDefault(); submit() }
   }
 
   async function submit() {
@@ -245,59 +262,69 @@ export default function ArgumentArena({ apiKey, onNeedSettings }) {
 
   const wordCount = claim.trim() ? claim.trim().split(/\s+/).length : 0
   const recentHistory = [...history].reverse().slice(0, 3)
+  const topCounterargument = result?.counterarguments?.[0] ?? result?.defenses?.[0] ?? result?.rewritten_argument ?? null
 
-  const topCounterargument =
-    result?.counterarguments?.[0] ?? result?.defenses?.[0] ?? result?.rewritten_argument ?? null
+  const canSubmit = !!claim.trim() && !isLoading && !countdown
 
   return (
-    <div className="space-y-5" style={{ width: '100%' }}>
+    <div style={{ width: '100%', display: 'flex', flexDirection: 'column', gap: 18 }}>
       {/* Mode selector */}
       <ModeSelector currentMode={mode} onModeChange={setMode} />
 
       {/* Topic presets */}
-      <TopicPresets
-        onSelect={(topic) => {
-          setClaim(topic)
-          textareaRef.current?.focus()
-        }}
-      />
+      <TopicPresets onSelect={topic => { setClaim(topic); textareaRef.current?.focus() }} />
 
-      {/* Compare mode toggle — desktop only */}
-      <div className="hidden sm:flex justify-end">
+      {/* Compare mode toggle */}
+      <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
         <button
-          onClick={() => setCompareMode((v) => !v)}
-          className="flex items-center gap-2 px-3 min-h-[36px] rounded-lg text-xs font-medium border transition-all duration-150"
-          style={
-            compareMode
-              ? { background: 'rgba(59,130,246,0.1)', borderColor: 'rgba(59,130,246,0.4)', color: '#60a5fa' }
-              : { background: 'transparent', borderColor: '#1e1e2e', color: '#6b7280' }
-          }
+          onClick={() => setCompareMode(v => !v)}
+          style={{
+            display: 'flex', alignItems: 'center', gap: 8,
+            padding: '6px 14px', minHeight: 36, borderRadius: 6,
+            border: '1px solid',
+            fontFamily: 'var(--font-ui)', fontSize: 12, fontWeight: 600, letterSpacing: '0.06em',
+            cursor: 'pointer', transition: 'all 0.15s', background: 'transparent',
+            ...(compareMode
+              ? { borderColor: 'var(--amber-dim)', color: 'var(--amber)' }
+              : { borderColor: 'var(--border-mid)', color: 'var(--muted-light)' }),
+          }}
         >
-          {compareMode ? '✕ Exit comparison' : '⚖️ Compare two arguments'}
+          {compareMode ? '✕ Exit Comparison' : '⚖ Compare Two Arguments'}
         </button>
       </div>
 
-      {/* ── Comparison mode (lazy) ──────────────────────────────────────────── */}
+      {/* ── Comparison mode ──────────────────────────────────────────────────── */}
       {compareMode ? (
-        <Suspense fallback={<div className="h-48 rounded-2xl bg-[#13131a] border border-[#1e1e2e] animate-pulse" />}>
-          <div className="rounded-2xl border border-[#1e1e2e] p-5" style={{ background: '#13131a' }}>
+        <Suspense fallback={<div style={{ height: 192, borderRadius: 10, background: 'var(--bg-card)', border: '1px solid var(--border-mid)', animation: 'pulse 1.5s infinite' }} />}>
+          <div style={{ borderRadius: 10, border: '1px solid var(--border-mid)', padding: 20, background: 'var(--bg-card)' }}>
             <ComparisonMode apiKey={apiKey} />
           </div>
         </Suspense>
       ) : (
         <>
-          {/* ── Input card ──────────────────────────────────────────────────── */}
-          <div className="rounded-2xl border border-[#1e1e2e] p-5 space-y-4" style={{ background: '#13131a' }}>
-            <div className="relative">
+          {/* ── Input card ────────────────────────────────────────────────────── */}
+          <div style={{ borderRadius: 10, border: '1px solid var(--border-mid)', padding: 20, background: 'var(--bg-card)', display: 'flex', flexDirection: 'column', gap: 14 }}>
+            <div style={{ position: 'relative' }}>
               <textarea
                 ref={textareaRef}
                 value={claim}
                 onChange={handleClaimChange}
                 onKeyDown={handleKeyDown}
-                placeholder="Enter any claim, opinion, or argument to analyze..."
-                style={{ width: '100%', minHeight: '120px', maxHeight: '300px', resize: 'none' }}
-                className="w-full px-4 py-3 pb-8 rounded-xl text-sm text-gray-200 leading-relaxed bg-[#0a0a0f] border border-[#1e1e2e] placeholder-gray-600 outline-none transition-all duration-200 focus:border-[#3b82f6]"
+                placeholder="Enter any claim, opinion, or argument to analyze…"
+                style={{
+                  width: '100%', minHeight: 120, maxHeight: 300, resize: 'none',
+                  padding: '14px 16px 32px',
+                  borderRadius: 8, border: '1px solid',
+                  borderColor: 'var(--border-mid)',
+                  background: 'var(--bg)', color: 'var(--cream)',
+                  fontFamily: 'var(--font-body)', fontSize: 16, lineHeight: 1.6,
+                  outline: 'none', transition: 'border-color 0.2s',
+                  caretColor: 'var(--amber)',
+                }}
+                onFocus={e => e.target.style.borderColor = 'var(--amber-dim)'}
+                onBlur={e => e.target.style.borderColor = 'var(--border-mid)'}
               />
+              <style>{`textarea::placeholder { color: var(--muted); font-family: var(--font-ui); font-size: 14px; }`}</style>
 
               <AnimatePresence>
                 {claim && (
@@ -307,12 +334,17 @@ export default function ArgumentArena({ apiKey, onNeedSettings }) {
                     animate={{ opacity: 1, scale: 1 }}
                     exit={{ opacity: 0, scale: 0.8 }}
                     transition={{ duration: dur(0.12) }}
-                    onClick={() => {
-                      setClaim('')
-                      textareaRef.current?.focus()
-                    }}
-                    className="absolute top-3 right-3 w-7 h-7 flex items-center justify-center rounded-full text-gray-600 hover:text-white hover:bg-[#1e1e2e] transition-all text-xs"
+                    onClick={() => { setClaim(''); textareaRef.current?.focus() }}
                     aria-label="Clear text"
+                    style={{
+                      position: 'absolute', top: 10, right: 10,
+                      width: 26, height: 26, borderRadius: '50%', border: '1px solid var(--border-mid)',
+                      background: 'var(--bg-raised)', color: 'var(--muted-light)', cursor: 'pointer',
+                      display: 'flex', alignItems: 'center', justifyContent: 'center',
+                      fontSize: 11, fontWeight: 700, transition: 'all 0.15s',
+                    }}
+                    onMouseEnter={e => { e.currentTarget.style.color = 'var(--cream)'; e.currentTarget.style.borderColor = 'var(--border-strong)'; }}
+                    onMouseLeave={e => { e.currentTarget.style.color = 'var(--muted-light)'; e.currentTarget.style.borderColor = 'var(--border-mid)'; }}
                   >
                     ✕
                   </motion.button>
@@ -320,46 +352,61 @@ export default function ArgumentArena({ apiKey, onNeedSettings }) {
               </AnimatePresence>
 
               <span
-                className="absolute bottom-3 right-3 text-xs tabular-nums select-none pointer-events-none"
-                style={{ color: claim.length > 450 ? '#f87171' : '#374151' }}
+                style={{
+                  position: 'absolute', bottom: 10, right: 14,
+                  fontFamily: 'var(--font-mono)', fontSize: 10, letterSpacing: '0.05em',
+                  color: claim.length > 450 ? 'var(--red-light)' : 'var(--muted)',
+                  pointerEvents: 'none', userSelect: 'none',
+                }}
               >
                 {claim.length}/{MAX_CHARS}
               </span>
             </div>
 
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-              <span className="text-xs text-gray-500 select-none">
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap' }}>
+              <span style={{ fontFamily: 'var(--font-ui)', fontSize: 12, color: 'var(--muted)', letterSpacing: '0.04em' }}>
                 {wordCount > 0 ? `${wordCount} word${wordCount !== 1 ? 's' : ''}` : 'Type or pick a topic above'}
               </span>
 
-              <div className="flex items-center gap-2">
-                <span className="hidden sm:flex items-center gap-1 text-gray-600 text-xs select-none">
-                  <kbd className="px-1.5 py-0.5 rounded border border-[#2a2a38] bg-[#18182a] font-mono text-[10px] leading-none">Ctrl</kbd>
-                  <span className="text-gray-700">+</span>
-                  <kbd className="px-1.5 py-0.5 rounded border border-[#2a2a38] bg-[#18182a] font-mono text-[10px] leading-none">↵</kbd>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                <span style={{ display: 'flex', alignItems: 'center', gap: 4, color: 'var(--muted)' }}>
+                  {['Ctrl', '+', '↵'].map((k, i) => (
+                    k === '+' ? <span key={i} style={{ color: 'var(--muted)', fontSize: 10 }}>+</span> :
+                    <kbd key={i} style={{ fontFamily: 'var(--font-mono)', fontSize: 9, padding: '2px 5px', borderRadius: 3, border: '1px solid var(--border-mid)', background: 'var(--bg-raised)', color: 'var(--muted-light)', letterSpacing: 0 }}>{k}</kbd>
+                  ))}
                 </span>
 
                 <button
                   onClick={submit}
-                  disabled={!claim.trim() || isLoading || countdown > 0}
-                  className="w-full sm:w-auto flex items-center justify-center gap-2 px-5 min-h-[48px] rounded-xl text-sm font-semibold bg-[#3b82f6] text-white disabled:opacity-40 disabled:cursor-not-allowed hover:bg-[#2563eb] active:scale-[0.98] transition-all duration-150"
-                  style={{ boxShadow: claim.trim() && !isLoading && !countdown ? '0 0 20px rgba(59,130,246,0.45)' : 'none' }}
+                  disabled={!canSubmit}
+                  style={{
+                    display: 'flex', alignItems: 'center', gap: 8,
+                    padding: '0 20px', minHeight: 44, borderRadius: 8,
+                    border: '1px solid var(--amber-dim)',
+                    background: canSubmit ? 'var(--amber)' : 'transparent',
+                    color: canSubmit ? '#0A0808' : 'var(--muted)',
+                    fontFamily: 'var(--font-display)', fontSize: 18, letterSpacing: '0.08em',
+                    cursor: canSubmit ? 'pointer' : 'not-allowed',
+                    transition: 'all 0.18s',
+                    boxShadow: canSubmit ? '0 0 22px rgba(232,160,32,0.4)' : 'none',
+                    opacity: !claim.trim() || countdown > 0 ? 0.42 : 1,
+                  }}
+                  onMouseEnter={e => { if (canSubmit) { e.currentTarget.style.boxShadow = '0 0 32px rgba(232,160,32,0.55)' } }}
+                  onMouseLeave={e => { if (canSubmit) { e.currentTarget.style.boxShadow = '0 0 22px rgba(232,160,32,0.4)' } }}
                 >
                   {isLoading ? (
-                    <>
-                      <svg className="w-4 h-4 animate-spin shrink-0" viewBox="0 0 24 24" fill="none">
-                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.4 0 0 5.4 0 12h4z" />
-                      </svg>
-                      Analyzing…
-                    </>
-                  ) : 'Analyze Argument'}
+                    <><Spinner /> ANALYZING…</>
+                  ) : countdown > 0 ? (
+                    `WAIT ${countdown}s`
+                  ) : (
+                    'ANALYZE'
+                  )}
                 </button>
               </div>
             </div>
           </div>
 
-          {/* ── Error display ────────────────────────────────────────────────── */}
+          {/* ── Error display ─────────────────────────────────────────────────── */}
           <AnimatePresence>
             {error && (
               <motion.div
@@ -368,39 +415,41 @@ export default function ArgumentArena({ apiKey, onNeedSettings }) {
                 animate={{ opacity: 1, y: 0 }}
                 exit={{ opacity: 0 }}
                 transition={{ duration: dur(0.2) }}
-                className="px-4 py-3 rounded-xl border border-red-800/40 text-sm"
-                style={{ background: 'rgba(239,68,68,0.07)' }}
+                style={{
+                  padding: '12px 16px', borderRadius: 8, border: '1px solid',
+                  fontFamily: 'var(--font-ui)', fontSize: 13,
+                  ...(error.type === 'rate_limit'
+                    ? { borderColor: 'rgba(232,160,32,0.3)', background: 'var(--amber-subtle)' }
+                    : { borderColor: 'rgba(194,56,40,0.3)', background: 'var(--red-subtle)' }),
+                }}
               >
                 {error.type === 'rate_limit' ? (
-                  <div className="flex items-center justify-between flex-wrap gap-2">
-                    <span className="text-amber-400">
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 8 }}>
+                    <span style={{ color: 'var(--amber-light)', fontWeight: 600 }}>
                       ⏱ Going too fast! {countdown > 0 ? `Wait ${countdown}s…` : 'Ready to retry.'}
                     </span>
                     {countdown === 0 && (
-                      <button onClick={submit} className="text-xs px-3 py-1 rounded-lg bg-[#1e1e2e] text-gray-300 hover:text-white transition-colors">
-                        Retry now
+                      <button onClick={submit} style={{ fontFamily: 'var(--font-ui)', fontSize: 12, fontWeight: 700, letterSpacing: '0.08em', padding: '4px 12px', borderRadius: 5, border: '1px solid var(--amber-dim)', background: 'var(--amber-subtle)', color: 'var(--amber)', cursor: 'pointer' }}>
+                        RETRY
                       </button>
                     )}
                   </div>
                 ) : error.type === 'network' ? (
-                  <div className="flex items-center justify-between flex-wrap gap-2">
-                    <span className="text-red-400">📡 {error.message}</span>
-                    <button onClick={submit} className="text-xs px-3 py-1 rounded-lg bg-[#1e1e2e] text-gray-300 hover:text-white transition-colors">
-                      Retry
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 8 }}>
+                    <span style={{ color: 'var(--red-light)', fontWeight: 600 }}>📡 {error.message}</span>
+                    <button onClick={submit} style={{ fontFamily: 'var(--font-ui)', fontSize: 12, fontWeight: 700, letterSpacing: '0.08em', padding: '4px 12px', borderRadius: 5, border: '1px solid var(--border-strong)', background: 'var(--bg-raised)', color: 'var(--cream-dim)', cursor: 'pointer' }}>
+                      RETRY
                     </button>
                   </div>
                 ) : error.type === 'no_api_key' ? (
-                  <div className="flex items-center justify-between flex-wrap gap-2">
-                    <span className="text-amber-400">🔑 Add your Groq API key to continue</span>
-                    <button
-                      onClick={() => onNeedSettings?.()}
-                      className="text-xs px-3 py-1 rounded-lg border border-amber-500/40 text-amber-300 hover:bg-amber-500/10 transition-colors"
-                    >
-                      Open Settings
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 8 }}>
+                    <span style={{ color: 'var(--amber-light)', fontWeight: 600 }}>🔑 Add your Groq API key to continue</span>
+                    <button onClick={() => onNeedSettings?.()} style={{ fontFamily: 'var(--font-ui)', fontSize: 12, fontWeight: 700, letterSpacing: '0.08em', padding: '4px 12px', borderRadius: 5, border: '1px solid rgba(232,160,32,0.4)', background: 'var(--amber-subtle)', color: 'var(--amber)', cursor: 'pointer' }}>
+                      OPEN SETTINGS
                     </button>
                   </div>
                 ) : (
-                  <span className="text-red-400">⚠️ {error.message}</span>
+                  <span style={{ color: 'var(--red-light)', fontWeight: 600 }}>⚠ {error.message}</span>
                 )}
               </motion.div>
             )}
@@ -409,12 +458,7 @@ export default function ArgumentArena({ apiKey, onNeedSettings }) {
           {/* Loading skeleton */}
           <AnimatePresence>
             {isLoading && (
-              <motion.div
-                key="skeleton"
-                initial={{ opacity: 0 }}
-                animate={{ opacity: 1 }}
-                exit={{ opacity: 0 }}
-              >
+              <motion.div key="skeleton" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
                 <AnalyzingSkeleton />
               </motion.div>
             )}
@@ -422,7 +466,7 @@ export default function ArgumentArena({ apiKey, onNeedSettings }) {
 
           <div ref={scrollAnchorRef} />
 
-          {/* ── Results ──────────────────────────────────────────────────────── */}
+          {/* ── Results ───────────────────────────────────────────────────────── */}
           <AnimatePresence mode="wait">
             {result && !isLoading && (
               <motion.div
@@ -431,10 +475,10 @@ export default function ArgumentArena({ apiKey, onNeedSettings }) {
                 animate={{ opacity: 1, y: 0 }}
                 exit={{ opacity: 0, y: -12 }}
                 transition={{ duration: dur(0.38), ease: [0.16, 1, 0.3, 1] }}
-                className="space-y-4"
+                style={{ display: 'flex', flexDirection: 'column', gap: 14 }}
               >
                 {/* Strength meter */}
-                <div className="rounded-2xl border border-[#1e1e2e] p-5" style={{ background: '#13131a' }}>
+                <div style={{ borderRadius: 10, border: '1px solid var(--border-mid)', padding: 20, background: 'var(--bg-card)' }}>
                   <StrengthMeter
                     score={score}
                     previousScore={previousScore !== null && previousScore !== score ? previousScore : null}
@@ -442,22 +486,28 @@ export default function ArgumentArena({ apiKey, onNeedSettings }) {
                 </div>
 
                 {/* Mode-specific cards */}
-                <div className="rounded-2xl border border-[#1e1e2e] p-5 space-y-4" style={{ background: '#13131a' }}>
+                <div style={{ borderRadius: 10, border: '1px solid var(--border-mid)', padding: 20, background: 'var(--bg-card)', display: 'flex', flexDirection: 'column', gap: 14 }}>
                   {mode === 'attack' && (
                     <>
-                      <p className="text-xs font-medium text-gray-500 uppercase tracking-widest">Counterarguments</p>
-                      <div className="space-y-3">
+                      <span style={{ fontFamily: 'var(--font-ui)', fontSize: 11, fontWeight: 700, letterSpacing: '0.20em', textTransform: 'uppercase', color: 'var(--muted-light)' }}>
+                        Counterarguments
+                      </span>
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
                         {result.counterarguments?.map((c, i) => (
                           <motion.div
                             key={i}
-                            initial={{ opacity: 0, x: -18 }}
+                            initial={{ opacity: 0, x: -14 }}
                             animate={{ opacity: 1, x: 0 }}
-                            transition={{ delay: dur(0.08 + i * 0.1), duration: dur(0.3) }}
-                            className="flex gap-4 p-4 rounded-xl"
-                            style={{ background: 'rgba(239,68,68,0.04)', border: '1px solid rgba(239,68,68,0.12)', borderLeftWidth: '3px', borderLeftColor: '#ef4444' }}
+                            transition={{ delay: dur(0.08 + i * 0.10), duration: dur(0.28) }}
+                            style={{
+                              display: 'flex', gap: 14, padding: '14px 16px', borderRadius: 8,
+                              background: 'var(--red-subtle)', borderLeft: '3px solid var(--red)',
+                            }}
                           >
-                            <span className="text-[#ef4444] font-black text-lg shrink-0 leading-none mt-0.5 select-none">{i + 1}</span>
-                            <p className="text-sm text-gray-300 leading-relaxed">
+                            <span style={{ fontFamily: 'var(--font-display)', fontSize: 22, color: 'var(--red-light)', flexShrink: 0, lineHeight: 1, marginTop: 2, userSelect: 'none' }}>
+                              {i + 1}
+                            </span>
+                            <p style={{ fontFamily: 'var(--font-body)', fontSize: 16, color: 'var(--cream-dim)', lineHeight: 1.6 }}>
                               <TypewriterText text={c} delay={i * 420} speed={11} />
                             </p>
                           </motion.div>
@@ -468,19 +518,25 @@ export default function ArgumentArena({ apiKey, onNeedSettings }) {
 
                   {mode === 'defend' && (
                     <>
-                      <p className="text-xs font-medium text-gray-500 uppercase tracking-widest">Your Rebuttals</p>
-                      <div className="space-y-3">
+                      <span style={{ fontFamily: 'var(--font-ui)', fontSize: 11, fontWeight: 700, letterSpacing: '0.20em', textTransform: 'uppercase', color: 'var(--muted-light)' }}>
+                        Your Rebuttals
+                      </span>
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
                         {result.defenses?.map((d, i) => (
                           <motion.div
                             key={i}
-                            initial={{ opacity: 0, x: -18 }}
+                            initial={{ opacity: 0, x: -14 }}
                             animate={{ opacity: 1, x: 0 }}
-                            transition={{ delay: dur(0.08 + i * 0.1), duration: dur(0.3) }}
-                            className="flex gap-4 p-4 rounded-xl"
-                            style={{ background: 'rgba(59,130,246,0.04)', border: '1px solid rgba(59,130,246,0.12)', borderLeftWidth: '3px', borderLeftColor: '#3b82f6' }}
+                            transition={{ delay: dur(0.08 + i * 0.10), duration: dur(0.28) }}
+                            style={{
+                              display: 'flex', gap: 14, padding: '14px 16px', borderRadius: 8,
+                              background: 'var(--blue-subtle)', borderLeft: '3px solid var(--blue)',
+                            }}
                           >
-                            <span className="text-[#3b82f6] font-black text-lg shrink-0 leading-none mt-0.5 select-none">{i + 1}</span>
-                            <p className="text-sm text-gray-300 leading-relaxed">
+                            <span style={{ fontFamily: 'var(--font-display)', fontSize: 22, color: 'var(--blue-light)', flexShrink: 0, lineHeight: 1, marginTop: 2, userSelect: 'none' }}>
+                              {i + 1}
+                            </span>
+                            <p style={{ fontFamily: 'var(--font-body)', fontSize: 16, color: 'var(--cream-dim)', lineHeight: 1.6 }}>
                               <TypewriterText text={d} delay={i * 420} speed={11} />
                             </p>
                           </motion.div>
@@ -491,10 +547,10 @@ export default function ArgumentArena({ apiKey, onNeedSettings }) {
                           initial={{ opacity: 0 }}
                           animate={{ opacity: 1 }}
                           transition={{ delay: dur(0.4) }}
-                          className="p-3 rounded-xl text-xs text-[#60a5fa] leading-relaxed"
-                          style={{ background: 'rgba(59,130,246,0.07)', border: '1px solid rgba(59,130,246,0.2)' }}
+                          style={{ padding: '10px 14px', borderRadius: 6, background: 'var(--blue-subtle)', border: '1px solid rgba(37,96,168,0.28)' }}
                         >
-                          <span className="font-semibold">Best strategy: </span>{result.strongest_defense}
+                          <span style={{ fontFamily: 'var(--font-ui)', fontSize: 12, fontWeight: 700, letterSpacing: '0.06em', color: 'var(--blue-light)' }}>Best strategy: </span>
+                          <span style={{ fontFamily: 'var(--font-body)', fontSize: 14, color: 'var(--cream-dim)' }}>{result.strongest_defense}</span>
                         </motion.div>
                       )}
                     </>
@@ -502,28 +558,37 @@ export default function ArgumentArena({ apiKey, onNeedSettings }) {
 
                   {mode === 'coach' && (
                     <>
-                      <p className="text-xs font-medium text-gray-500 uppercase tracking-widest">Rewritten Argument</p>
+                      <span style={{ fontFamily: 'var(--font-ui)', fontSize: 11, fontWeight: 700, letterSpacing: '0.20em', textTransform: 'uppercase', color: 'var(--muted-light)' }}>
+                        Rewritten Argument
+                      </span>
                       <motion.div
                         initial={{ opacity: 0, scale: 0.98 }}
                         animate={{ opacity: 1, scale: 1 }}
                         transition={{ duration: dur(0.3) }}
-                        className="p-4 rounded-xl text-sm text-gray-200 leading-relaxed"
-                        style={{ background: 'rgba(34,197,94,0.06)', border: '1px solid rgba(34,197,94,0.2)', boxShadow: '0 0 24px rgba(34,197,94,0.07)' }}
+                        style={{
+                          padding: '16px 18px', borderRadius: 8,
+                          background: 'var(--green-subtle)', border: '1px solid rgba(32,122,80,0.28)',
+                          boxShadow: '0 0 28px rgba(32,122,80,0.08)',
+                          fontFamily: 'var(--font-body)', fontSize: 16, color: 'var(--cream-dim)', lineHeight: 1.65,
+                        }}
                       >
                         <TypewriterText text={result.rewritten_argument} delay={0} speed={9} />
                       </motion.div>
                       {result.techniques_used?.length > 0 && (
-                        <div className="space-y-2 pt-1">
-                          <p className="text-xs font-medium text-gray-600 uppercase tracking-widest">Techniques Applied</p>
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: 8, paddingTop: 4 }}>
+                          <span style={{ fontFamily: 'var(--font-ui)', fontSize: 11, fontWeight: 700, letterSpacing: '0.18em', textTransform: 'uppercase', color: 'var(--muted)' }}>
+                            Techniques Applied
+                          </span>
                           {result.techniques_used.map((t, i) => (
                             <motion.div
                               key={i}
                               initial={{ opacity: 0, x: -10 }}
                               animate={{ opacity: 1, x: 0 }}
                               transition={{ delay: dur(0.18 + i * 0.08) }}
-                              className="flex items-start gap-2.5 text-sm text-gray-300"
+                              style={{ display: 'flex', alignItems: 'flex-start', gap: 10 }}
                             >
-                              <span className="text-[#4ade80] shrink-0 mt-0.5 font-bold">✓</span>{t}
+                              <span style={{ color: 'var(--green-light)', flexShrink: 0, marginTop: 2, fontWeight: 700 }}>✓</span>
+                              <span style={{ fontFamily: 'var(--font-body)', fontSize: 15, color: 'var(--cream-dim)' }}>{t}</span>
                             </motion.div>
                           ))}
                         </div>
@@ -534,7 +599,7 @@ export default function ArgumentArena({ apiKey, onNeedSettings }) {
 
                 {/* Fallacy detector */}
                 {mode === 'attack' && result.fallacies !== undefined && (
-                  <div className="rounded-2xl border border-[#1e1e2e] p-5" style={{ background: '#13131a' }}>
+                  <div style={{ borderRadius: 10, border: '1px solid var(--border-mid)', padding: 20, background: 'var(--bg-card)' }}>
                     <FallacyDetector fallacies={result.fallacies} />
                   </div>
                 )}
@@ -545,26 +610,30 @@ export default function ArgumentArena({ apiKey, onNeedSettings }) {
                     initial={{ opacity: 0 }}
                     animate={{ opacity: 1 }}
                     transition={{ delay: dur(0.3) }}
-                    className="rounded-2xl border p-5"
-                    style={{ background: 'rgba(245,158,11,0.05)', borderColor: 'rgba(245,158,11,0.18)' }}
+                    style={{
+                      borderRadius: 10, padding: 20,
+                      background: 'var(--amber-subtle)', border: '1px solid rgba(232,160,32,0.22)',
+                    }}
                   >
-                    <p className="text-xs font-medium text-[#f59e0b] uppercase tracking-widest mb-3">
+                    <p style={{ fontFamily: 'var(--font-ui)', fontSize: 11, fontWeight: 700, letterSpacing: '0.20em', textTransform: 'uppercase', color: 'var(--amber)', marginBottom: 10 }}>
                       {mode === 'coach' ? 'Coaching Tip' : 'Verdict'}
                     </p>
-                    <p className="text-sm text-gray-300 leading-relaxed italic">
+                    <p style={{ fontFamily: 'var(--font-body)', fontSize: 17, fontStyle: 'italic', color: 'var(--cream-dim)', lineHeight: 1.6 }}>
                       &ldquo;{result.verdict ?? result.coaching_tip}&rdquo;
                     </p>
                   </motion.div>
                 )}
 
                 {/* Share card */}
-                <div className="rounded-2xl border border-[#1e1e2e] p-5" style={{ background: '#13131a' }}>
-                  <p className="text-xs font-medium text-gray-500 uppercase tracking-widest mb-4">Share Result</p>
+                <div style={{ borderRadius: 10, border: '1px solid var(--border-mid)', padding: 20, background: 'var(--bg-card)' }}>
+                  <p style={{ fontFamily: 'var(--font-ui)', fontSize: 11, fontWeight: 700, letterSpacing: '0.20em', textTransform: 'uppercase', color: 'var(--muted-light)', marginBottom: 14 }}>
+                    Share Result
+                  </p>
                   <ShareCard claim={claim} score={score} topCounterargument={topCounterargument} mode={mode} />
                 </div>
 
                 {/* Action buttons */}
-                <div className="flex flex-wrap gap-2 pt-1">
+                <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, paddingTop: 4 }}>
                   {mode === 'attack' && (
                     <motion.button
                       initial={{ opacity: 0, y: 6 }}
@@ -572,23 +641,41 @@ export default function ArgumentArena({ apiKey, onNeedSettings }) {
                       transition={{ delay: dur(0.35) }}
                       onClick={() => switchMode('defend')}
                       disabled={isLoading || countdown > 0}
-                      className="flex items-center gap-2 px-4 min-h-[44px] rounded-xl text-sm font-medium transition-all duration-150 disabled:opacity-40 border border-[#3b82f6]/30 text-[#60a5fa] hover:border-[#3b82f6]/60 hover:bg-[#1a2d4a]"
-                      style={{ background: 'rgba(59,130,246,0.07)' }}
+                      style={{
+                        display: 'flex', alignItems: 'center', gap: 8,
+                        padding: '0 16px', minHeight: 42, borderRadius: 7,
+                        border: '1px solid rgba(37,96,168,0.35)',
+                        background: 'var(--blue-subtle)', color: 'var(--blue-light)',
+                        fontFamily: 'var(--font-ui)', fontSize: 13, fontWeight: 600, letterSpacing: '0.05em',
+                        cursor: 'pointer', transition: 'all 0.15s',
+                        opacity: isLoading || countdown > 0 ? 0.4 : 1,
+                      }}
+                      onMouseEnter={e => { e.currentTarget.style.borderColor = 'rgba(37,96,168,0.65)'; e.currentTarget.style.background = 'rgba(37,96,168,0.15)'; }}
+                      onMouseLeave={e => { e.currentTarget.style.borderColor = 'rgba(37,96,168,0.35)'; e.currentTarget.style.background = 'var(--blue-subtle)'; }}
                     >
-                      🛡️ Switch to Defend mode
+                      🛡 Switch to Defend Mode
                     </motion.button>
                   )}
                   {mode !== 'coach' && (
                     <motion.button
                       initial={{ opacity: 0, y: 6 }}
                       animate={{ opacity: 1, y: 0 }}
-                      transition={{ delay: dur(0.4) }}
+                      transition={{ delay: dur(0.40) }}
                       onClick={() => switchMode('coach')}
                       disabled={isLoading || countdown > 0}
-                      className="flex items-center gap-2 px-4 min-h-[44px] rounded-xl text-sm font-medium transition-all duration-150 disabled:opacity-40 border border-[#22c55e]/30 text-[#4ade80] hover:border-[#22c55e]/60 hover:bg-[#0e1f10]"
-                      style={{ background: 'rgba(34,197,94,0.07)' }}
+                      style={{
+                        display: 'flex', alignItems: 'center', gap: 8,
+                        padding: '0 16px', minHeight: 42, borderRadius: 7,
+                        border: '1px solid rgba(32,122,80,0.35)',
+                        background: 'var(--green-subtle)', color: 'var(--green-light)',
+                        fontFamily: 'var(--font-ui)', fontSize: 13, fontWeight: 600, letterSpacing: '0.05em',
+                        cursor: 'pointer', transition: 'all 0.15s',
+                        opacity: isLoading || countdown > 0 ? 0.4 : 1,
+                      }}
+                      onMouseEnter={e => { e.currentTarget.style.borderColor = 'rgba(32,122,80,0.65)'; e.currentTarget.style.background = 'rgba(32,122,80,0.15)'; }}
+                      onMouseLeave={e => { e.currentTarget.style.borderColor = 'rgba(32,122,80,0.35)'; e.currentTarget.style.background = 'var(--green-subtle)'; }}
                     >
-                      🎯 Switch to Coach mode
+                      🎯 Switch to Coach Mode
                     </motion.button>
                   )}
                   <motion.button
@@ -596,16 +683,25 @@ export default function ArgumentArena({ apiKey, onNeedSettings }) {
                     animate={{ opacity: 1, y: 0 }}
                     transition={{ delay: dur(0.45) }}
                     onClick={handleClear}
-                    className="ml-auto flex items-center gap-2 px-4 min-h-[44px] rounded-xl text-sm font-medium transition-all duration-150 border border-[#1e1e2e] text-gray-500 hover:border-gray-600 hover:text-gray-300 hover:bg-[#18181f]"
+                    style={{
+                      display: 'flex', alignItems: 'center', gap: 8,
+                      padding: '0 16px', minHeight: 42, borderRadius: 7, marginLeft: 'auto',
+                      border: '1px solid var(--border-mid)', background: 'transparent',
+                      color: 'var(--muted-light)',
+                      fontFamily: 'var(--font-ui)', fontSize: 13, fontWeight: 600, letterSpacing: '0.05em',
+                      cursor: 'pointer', transition: 'all 0.15s',
+                    }}
+                    onMouseEnter={e => { e.currentTarget.style.borderColor = 'var(--border-strong)'; e.currentTarget.style.color = 'var(--cream-dim)'; e.currentTarget.style.background = 'var(--bg-raised)'; }}
+                    onMouseLeave={e => { e.currentTarget.style.borderColor = 'var(--border-mid)'; e.currentTarget.style.color = 'var(--muted-light)'; e.currentTarget.style.background = 'transparent'; }}
                   >
-                    ↩ New argument
+                    ↩ New Argument
                   </motion.button>
                 </div>
               </motion.div>
             )}
           </AnimatePresence>
 
-          {/* ── Recent Debates ───────────────────────────────────────────────── */}
+          {/* ── Recent Debates ─────────────────────────────────────────────────── */}
           <AnimatePresence>
             {recentHistory.length > 0 && (
               <motion.div
@@ -613,15 +709,22 @@ export default function ArgumentArena({ apiKey, onNeedSettings }) {
                 initial={{ opacity: 0 }}
                 animate={{ opacity: 1 }}
                 exit={{ opacity: 0 }}
-                className="space-y-3 pt-2"
+                style={{ display: 'flex', flexDirection: 'column', gap: 10, paddingTop: 8 }}
               >
-                <div className="flex items-center gap-4">
-                  <span className="text-xs font-medium text-gray-600 uppercase tracking-widest">Recent Debates</span>
-                  <button onClick={clearHistory} className="text-xs text-gray-700 hover:text-gray-400 transition-colors">
+                <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
+                  <span style={{ fontFamily: 'var(--font-ui)', fontSize: 11, fontWeight: 700, letterSpacing: '0.20em', textTransform: 'uppercase', color: 'var(--muted)' }}>
+                    Recent Debates
+                  </span>
+                  <button
+                    onClick={clearHistory}
+                    style={{ fontFamily: 'var(--font-ui)', fontSize: 11, fontWeight: 600, color: 'var(--muted)', background: 'none', border: 'none', cursor: 'pointer', letterSpacing: '0.04em', transition: 'color 0.15s' }}
+                    onMouseEnter={e => e.currentTarget.style.color = 'var(--amber)'}
+                    onMouseLeave={e => e.currentTarget.style.color = 'var(--muted)'}
+                  >
                     Clear all
                   </button>
                 </div>
-                <div className="space-y-2">
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
                   {recentHistory.map((entry, i) => (
                     <HistoryCard key={entry.timestamp} entry={entry} index={i} />
                   ))}

@@ -2,20 +2,27 @@ import { useState } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 
 function getLabel(score) {
-  if (score <= 25) return 'Weak ❌'
-  if (score <= 50) return 'Moderate ⚠️'
-  if (score <= 75) return 'Strong ✅'
-  return 'Bulletproof 🔥'
+  if (score <= 25) return 'WEAK'
+  if (score <= 50) return 'MODERATE'
+  if (score <= 75) return 'STRONG'
+  return 'BULLETPROOF'
 }
 
 function getColor(score) {
-  if (score <= 25) return '#f87171'
-  if (score <= 50) return '#fbbf24'
-  if (score <= 75) return '#60a5fa'
-  return '#4ade80'
+  if (score <= 25) return 'var(--red-light)'
+  if (score <= 50) return 'var(--amber)'
+  if (score <= 75) return 'var(--blue-light)'
+  return 'var(--green-light)'
 }
 
-const MODE_LABELS = { attack: '⚔️ Attack', defend: '🛡️ Defend', coach: '🎯 Coach' }
+function getRawColor(score) {
+  if (score <= 25) return '#E05040'
+  if (score <= 50) return '#E8A020'
+  if (score <= 75) return '#4A8FD4'
+  return '#38AE72'
+}
+
+const MODE_LABELS = { attack: '⚔ Attack', defend: '🛡 Defend', coach: '🎯 Coach' }
 
 export default function ShareCard({ claim, score, topCounterargument, mode }) {
   const [copied, setCopied] = useState(false)
@@ -25,6 +32,7 @@ export default function ShareCard({ claim, score, topCounterargument, mode }) {
 
   const label = getLabel(score)
   const color = getColor(score)
+  const raw = getRawColor(score)
   const truncClaim = claim.length > 100 ? claim.slice(0, 97) + '…' : claim
   const truncCounter = topCounterargument
     ? topCounterargument.length > 120 ? topCounterargument.slice(0, 117) + '…' : topCounterargument
@@ -33,7 +41,7 @@ export default function ShareCard({ claim, score, topCounterargument, mode }) {
   function handleCopy() {
     const modeLabel = MODE_LABELS[mode] ?? mode
     const lines = [
-      `⚔️ DebateAI Analysis — ${modeLabel} Mode`,
+      `⚔ DebateAI Analysis — ${modeLabel} Mode`,
       '',
       `📌 Argument: "${claim}"`,
       '',
@@ -46,95 +54,93 @@ export default function ShareCard({ claim, score, topCounterargument, mode }) {
     navigator.clipboard.writeText(lines.join('\n')).then(() => {
       setCopied(true)
       setToastVisible(true)
-      setTimeout(() => {
-        setCopied(false)
-        setToastVisible(false)
-      }, 2000)
+      setTimeout(() => { setCopied(false); setToastVisible(false) }, 2000)
     })
   }
 
   return (
-    <div className="space-y-3">
-      {/* Visual card — 16:9 styled */}
-      <div
-        className="relative rounded-2xl p-5 overflow-hidden flex flex-col justify-between gap-4"
-        style={{
-          background: 'linear-gradient(135deg, #13131a 0%, #0c0c12 100%)',
-          border: `1px solid ${color}20`,
-          boxShadow: `0 0 28px ${color}0a`,
-          minHeight: '200px',
-        }}
-      >
-        {/* Background score watermark */}
-        <span
-          className="absolute right-5 bottom-3 font-black select-none pointer-events-none leading-none"
-          style={{ fontSize: '7rem', color: `${color}07` }}
-        >
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+      {/* Visual card */}
+      <div style={{
+        position: 'relative', borderRadius: 8, padding: 20, overflow: 'hidden',
+        display: 'flex', flexDirection: 'column', justifyContent: 'space-between', gap: 16,
+        background: 'linear-gradient(135deg, var(--bg-raised) 0%, var(--bg-card) 100%)',
+        border: `1px solid ${raw}22`,
+        boxShadow: `0 0 36px ${raw}09`,
+        minHeight: 180,
+      }}>
+        {/* Watermark score */}
+        <span style={{
+          position: 'absolute', right: 12, bottom: -8,
+          fontFamily: 'var(--font-display)', fontSize: 130, lineHeight: 1,
+          color: `${raw}09`, pointerEvents: 'none', userSelect: 'none',
+        }}>
           {score}
         </span>
 
-        {/* Top row: logo + mode badge */}
-        <div className="flex items-center justify-between z-10">
-          <div className="flex items-center gap-2">
-            <span className="text-base">⚔️</span>
-            <span className="text-sm font-bold text-white tracking-tight">DebateAI</span>
-          </div>
-          <span
-            className="text-[10px] font-semibold px-2 py-0.5 rounded-full"
-            style={{ background: `${color}18`, color, border: `1px solid ${color}35` }}
-          >
+        {/* Top row */}
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', position: 'relative', zIndex: 1 }}>
+          <span style={{ fontFamily: 'var(--font-display)', fontSize: 19, letterSpacing: '0.08em', color: 'var(--cream)' }}>
+            DEBATE<span style={{ color: 'var(--amber)' }}>AI</span>
+          </span>
+          <span style={{ fontFamily: 'var(--font-ui)', fontSize: 10, fontWeight: 700, letterSpacing: '0.12em', textTransform: 'uppercase', padding: '4px 10px', borderRadius: 3, border: `1px solid ${raw}32`, background: `${raw}10`, color }}>
             {MODE_LABELS[mode] ?? mode}
           </span>
         </div>
 
         {/* Claim */}
-        <div className="z-10 space-y-1">
-          <p className="text-[10px] font-medium text-gray-500 uppercase tracking-widest">Argument</p>
-          <p className="text-sm text-gray-200 leading-snug">{truncClaim}</p>
+        <div style={{ position: 'relative', zIndex: 1 }}>
+          <p style={{ fontFamily: 'var(--font-ui)', fontSize: 10, fontWeight: 700, letterSpacing: '0.15em', textTransform: 'uppercase', color: 'var(--muted)', marginBottom: 5 }}>
+            Argument
+          </p>
+          <p style={{ fontFamily: 'var(--font-body)', fontSize: 15, color: 'var(--cream-dim)', lineHeight: 1.45 }}>
+            {truncClaim}
+          </p>
         </div>
 
-        {/* Bottom row: counterargument snippet + score */}
-        <div className="flex items-end justify-between gap-4 z-10">
+        {/* Bottom row */}
+        <div style={{ display: 'flex', alignItems: 'flex-end', justifyContent: 'space-between', gap: 16, position: 'relative', zIndex: 1 }}>
           {truncCounter ? (
-            <p className="text-[11px] text-gray-600 leading-relaxed flex-1 italic">
-              "{truncCounter}"
+            <p style={{ fontFamily: 'var(--font-body)', fontSize: 12, fontStyle: 'italic', color: 'var(--muted-light)', flex: 1, lineHeight: 1.45 }}>
+              &ldquo;{truncCounter}&rdquo;
             </p>
           ) : <div />}
-          <div className="text-right shrink-0">
-            <div
-              className="text-5xl font-black tabular-nums leading-none"
-              style={{ color, textShadow: `0 0 24px ${color}50` }}
-            >
+          <div style={{ textAlign: 'right', flexShrink: 0 }}>
+            <div style={{ fontFamily: 'var(--font-display)', fontSize: 58, lineHeight: 1, color, textShadow: `0 0 32px ${raw}55` }}>
               {score}
             </div>
-            <div className="text-xs font-semibold mt-0.5" style={{ color }}>
+            <div style={{ fontFamily: 'var(--font-display)', fontSize: 13, letterSpacing: '0.07em', color, marginTop: -4 }}>
               {label}
             </div>
           </div>
         </div>
       </div>
 
-      {/* Copy button + toast */}
-      <div className="relative flex justify-end">
+      {/* Copy button */}
+      <div style={{ position: 'relative', display: 'flex', justifyContent: 'flex-end' }}>
         <button
           onClick={handleCopy}
-          className="flex items-center gap-2 px-4 min-h-[40px] rounded-xl text-sm font-medium
-                     border border-[#1e1e2e] text-gray-400
-                     hover:border-gray-600 hover:text-white hover:bg-[#18181f]
-                     transition-all duration-150"
+          style={{
+            display: 'flex', alignItems: 'center', gap: 8,
+            padding: '8px 16px', minHeight: 38, borderRadius: 6,
+            border: '1px solid var(--border-mid)',
+            background: 'transparent',
+            color: copied ? 'var(--green-light)' : 'var(--muted-light)',
+            fontFamily: 'var(--font-ui)', fontSize: 13, fontWeight: 600, letterSpacing: '0.05em',
+            cursor: 'pointer', transition: 'all 0.15s',
+          }}
+          onMouseEnter={e => { if (!copied) { e.currentTarget.style.borderColor = 'var(--amber-dim)'; e.currentTarget.style.color = 'var(--amber)'; } }}
+          onMouseLeave={e => { if (!copied) { e.currentTarget.style.borderColor = 'var(--border-mid)'; e.currentTarget.style.color = 'var(--muted-light)'; } }}
         >
           {copied ? (
-            <>
-              <span className="text-[#4ade80]">✓</span>
-              <span className="text-[#4ade80]">Copied!</span>
-            </>
+            <><span>✓</span> Copied!</>
           ) : (
             <>
               <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                 <rect x="9" y="9" width="13" height="13" rx="2" />
                 <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1" />
               </svg>
-              Copy result
+              Copy Result
             </>
           )}
         </button>
@@ -146,16 +152,15 @@ export default function ShareCard({ claim, score, topCounterargument, mode }) {
               animate={{ opacity: 1, y: 0, scale: 1 }}
               exit={{ opacity: 0, y: 6, scale: 0.95 }}
               transition={{ duration: 0.16 }}
-              className="absolute bottom-full mb-2 right-0 px-3 py-1.5 rounded-lg text-xs font-medium"
               style={{
-                background: 'rgba(34,197,94,0.12)',
-                border: '1px solid rgba(34,197,94,0.3)',
-                color: '#4ade80',
-                boxShadow: '0 4px 12px rgba(0,0,0,0.4)',
-                whiteSpace: 'nowrap',
+                position: 'absolute', bottom: '100%', marginBottom: 8, right: 0,
+                padding: '6px 12px', borderRadius: 6,
+                background: 'rgba(32,122,80,0.14)', border: '1px solid rgba(32,122,80,0.32)',
+                color: 'var(--green-light)', fontFamily: 'var(--font-ui)', fontSize: 12, fontWeight: 600,
+                boxShadow: '0 4px 16px rgba(0,0,0,0.55)', whiteSpace: 'nowrap',
               }}
             >
-              ✅ Copied to clipboard!
+              ✓ Copied to clipboard!
             </motion.div>
           )}
         </AnimatePresence>

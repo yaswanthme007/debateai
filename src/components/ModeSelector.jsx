@@ -1,63 +1,93 @@
 const MODES = [
   {
     id: 'attack',
-    label: '⚔️ Attack',
+    label: 'ATTACK',
+    icon: '⚔',
     description: 'AI destroys your argument',
     activeStyle: {
-      background: 'rgba(239,68,68,0.15)',
-      borderColor: '#ef4444',
-      boxShadow: '0 0 20px rgba(239,68,68,0.4)',
-      color: '#f87171',
+      background: 'var(--red-subtle)',
+      borderColor: 'var(--red)',
+      boxShadow: '0 0 22px var(--red-glow)',
+      color: 'var(--red-light)',
     },
   },
   {
     id: 'defend',
-    label: '🛡️ Defend',
+    label: 'DEFEND',
+    icon: '🛡',
     description: 'AI helps you fight back',
     activeStyle: {
-      background: 'rgba(59,130,246,0.15)',
-      borderColor: '#3b82f6',
-      boxShadow: '0 0 20px rgba(59,130,246,0.4)',
-      color: '#60a5fa',
+      background: 'var(--blue-subtle)',
+      borderColor: 'var(--blue)',
+      boxShadow: '0 0 22px var(--blue-glow)',
+      color: 'var(--blue-light)',
     },
   },
   {
     id: 'coach',
-    label: '🎯 Coach',
+    label: 'COACH',
+    icon: '🎯',
     description: 'AI rewrites it perfectly',
     activeStyle: {
-      background: 'rgba(34,197,94,0.15)',
-      borderColor: '#22c55e',
-      boxShadow: '0 0 20px rgba(34,197,94,0.4)',
-      color: '#4ade80',
+      background: 'var(--green-subtle)',
+      borderColor: 'var(--green)',
+      boxShadow: '0 0 22px var(--green-glow)',
+      color: 'var(--green-light)',
     },
   },
 ]
 
 export default function ModeSelector({ currentMode, onModeChange }) {
   return (
-    <div className="flex flex-col sm:flex-row gap-2 sm:gap-3 w-full">
-      {MODES.map((m) => {
-        const isActive = currentMode === m.id
-        return (
-          <button
-            key={m.id}
-            onClick={() => onModeChange(m.id)}
-            style={isActive ? m.activeStyle : undefined}
-            className={[
-              'flex-1 flex sm:flex-col items-center sm:items-center gap-3 sm:gap-1.5',
-              'px-4 min-h-[48px] sm:min-h-0 sm:py-3 rounded-xl border',
-              'transition-all duration-200 cursor-pointer select-none text-left sm:text-center',
-              isActive
-                ? ''
-                : 'bg-[#13131a] border-[#1e1e2e] text-gray-400 hover:border-gray-500 hover:text-gray-200 hover:bg-[#1a1a24]',
-            ].join(' ')}
-          >
-            <span className="text-base font-semibold tracking-wide shrink-0">{m.label}</span>
-            <span className="text-[11px] opacity-70 font-normal">{m.description}</span>
-          </button>
-        )
-      })}
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+      <span style={{ fontFamily: 'var(--font-ui)', fontSize: 11, fontWeight: 700, letterSpacing: '0.20em', textTransform: 'uppercase', color: 'var(--muted-light)' }}>
+        ◆ Select Mode
+      </span>
+      <div style={{ display: 'flex', gap: 8 }}>
+        {MODES.map((m) => {
+          const isActive = currentMode === m.id
+          return (
+            <button
+              key={m.id}
+              onClick={() => onModeChange(m.id)}
+              style={{
+                flex: 1,
+                padding: '12px 8px',
+                border: '1px solid',
+                borderRadius: 8,
+                cursor: 'pointer',
+                transition: 'all 0.18s',
+                textAlign: 'center',
+                ...(isActive
+                  ? m.activeStyle
+                  : { background: 'var(--bg-card)', borderColor: 'var(--border-mid)', color: 'var(--muted-light)' }),
+              }}
+              onMouseEnter={e => {
+                if (!isActive) {
+                  e.currentTarget.style.borderColor = 'var(--border-strong)'
+                  e.currentTarget.style.color = 'var(--cream-dim)'
+                  e.currentTarget.style.background = 'var(--bg-raised)'
+                }
+              }}
+              onMouseLeave={e => {
+                if (!isActive) {
+                  e.currentTarget.style.borderColor = 'var(--border-mid)'
+                  e.currentTarget.style.color = 'var(--muted-light)'
+                  e.currentTarget.style.background = 'var(--bg-card)'
+                }
+              }}
+            >
+              <span style={{ display: 'block', fontSize: 18, marginBottom: 4 }}>{m.icon}</span>
+              <span style={{ display: 'block', fontFamily: 'var(--font-display)', fontSize: 19, letterSpacing: '0.07em', lineHeight: 1, marginBottom: 4 }}>
+                {m.label}
+              </span>
+              <span style={{ display: 'block', fontFamily: 'var(--font-ui)', fontSize: 11, fontWeight: 400, opacity: 0.65, lineHeight: 1.3 }}>
+                {m.description}
+              </span>
+            </button>
+          )
+        })}
+      </div>
     </div>
   )
 }

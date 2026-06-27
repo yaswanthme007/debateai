@@ -2,17 +2,17 @@ import { memo, useEffect, useRef, useState } from 'react'
 import { motion } from 'framer-motion'
 
 function getColor(score) {
-  if (score <= 25) return { bar: '#ef4444', glow: 'rgba(239,68,68,0.4)', text: '#f87171' }
-  if (score <= 50) return { bar: '#f59e0b', glow: 'rgba(245,158,11,0.4)', text: '#fbbf24' }
-  if (score <= 75) return { bar: '#3b82f6', glow: 'rgba(59,130,246,0.4)', text: '#60a5fa' }
-  return { bar: '#22c55e', glow: 'rgba(34,197,94,0.4)', text: '#4ade80' }
+  if (score <= 25) return { bar: 'var(--red)',   glow: 'var(--red-glow)',   text: 'var(--red-light)'   }
+  if (score <= 50) return { bar: 'var(--amber)', glow: 'var(--amber-glow)', text: 'var(--amber-light)'  }
+  if (score <= 75) return { bar: 'var(--blue)',  glow: 'var(--blue-glow)',  text: 'var(--blue-light)'   }
+  return               { bar: 'var(--green)', glow: 'var(--green-glow)', text: 'var(--green-light)'  }
 }
 
 function getLabel(score) {
-  if (score <= 25) return 'Weak ❌'
-  if (score <= 50) return 'Moderate ⚠️'
-  if (score <= 75) return 'Strong ✅'
-  return 'Bulletproof 🔥'
+  if (score <= 25) return 'WEAK'
+  if (score <= 50) return 'MODERATE'
+  if (score <= 75) return 'STRONG'
+  return 'BULLETPROOF'
 }
 
 function CountUp({ target }) {
@@ -21,23 +21,16 @@ function CountUp({ target }) {
 
   useEffect(() => {
     if (target === null || target === undefined) return
-
     const reduced = typeof window !== 'undefined' && window.matchMedia('(prefers-reduced-motion: reduce)').matches
-    if (reduced) {
-      setDisplay(target)
-      return
-    }
-
+    if (reduced) { setDisplay(target); return }
     const start = performance.now()
     const duration = 1200
-
     function tick(now) {
       const elapsed = Math.min((now - start) / duration, 1)
       const eased = 1 - Math.pow(1 - elapsed, 3)
       setDisplay(Math.round(eased * target))
       if (elapsed < 1) frameRef.current = requestAnimationFrame(tick)
     }
-
     frameRef.current = requestAnimationFrame(tick)
     return () => cancelAnimationFrame(frameRef.current)
   }, [target])
@@ -53,36 +46,48 @@ function StrengthMeter({ score, previousScore }) {
   const delta = previousScore !== undefined && previousScore !== null ? score - previousScore : null
 
   return (
-    <div className="w-full space-y-2">
-      <div className="flex items-end justify-between">
-        <span className="text-xs font-medium text-gray-400 uppercase tracking-widest">
+    <div style={{ width: '100%' }}>
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 }}>
+        <span style={{ fontFamily: 'var(--font-ui)', fontSize: 11, fontWeight: 700, letterSpacing: '0.20em', textTransform: 'uppercase', color: 'var(--muted-light)' }}>
           Argument Strength
         </span>
-        <div className="flex items-baseline gap-2">
-          {delta !== null && (
-            <span className="text-xs font-semibold" style={{ color: delta >= 0 ? '#4ade80' : '#f87171' }}>
-              {delta >= 0 ? `+${delta} improved` : `${delta} dropped`}
-            </span>
-          )}
-          <span className="text-xs font-medium" style={{ color: colors.text }}>{label}</span>
+        {delta !== null && (
+          <span style={{ fontFamily: 'var(--font-ui)', fontSize: 12, fontWeight: 700, letterSpacing: '0.05em', color: delta >= 0 ? 'var(--green-light)' : 'var(--red-light)' }}>
+            {delta >= 0 ? `▲ +${delta} improved` : `▼ ${delta} dropped`}
+          </span>
+        )}
+      </div>
+
+      <div style={{ display: 'flex', alignItems: 'center', gap: 24 }}>
+        {/* Big score number */}
+        <div style={{ textAlign: 'center', flexShrink: 0, lineHeight: 1 }}>
+          <span style={{ fontFamily: 'var(--font-display)', fontSize: 80, lineHeight: 1, color: colors.text, textShadow: `0 0 48px ${colors.glow}` }}>
+            <CountUp target={score} />
+          </span>
+          <span style={{ display: 'block', fontFamily: 'var(--font-display)', fontSize: 22, color: 'var(--muted)', marginTop: -4 }}>
+            /100
+          </span>
         </div>
-      </div>
 
-      <div className="relative w-full h-3 rounded-full bg-[#1e1e2e] overflow-hidden">
-        <motion.div
-          className="absolute inset-y-0 left-0 rounded-full"
-          style={{ backgroundColor: colors.bar, boxShadow: `0 0 10px ${colors.glow}` }}
-          initial={{ width: '0%' }}
-          animate={{ width: `${score}%` }}
-          transition={{ duration: 1.2, ease: [0.16, 1, 0.3, 1] }}
-        />
-      </div>
-
-      <div className="flex justify-end">
-        <span className="text-4xl font-black tabular-nums" style={{ color: colors.text }}>
-          <CountUp target={score} />
-          <span className="text-xl font-semibold text-gray-500">/100</span>
-        </span>
+        {/* Bar + label */}
+        <div style={{ flex: 1, minWidth: 0 }}>
+          <div style={{ fontFamily: 'var(--font-display)', fontSize: 24, letterSpacing: '0.08em', color: colors.text, marginBottom: 10 }}>
+            {label}
+          </div>
+          <div style={{ width: '100%', height: 10, background: 'var(--border-mid)', borderRadius: 2, overflow: 'hidden' }}>
+            <motion.div
+              style={{ height: '100%', backgroundColor: colors.bar, borderRadius: 2, boxShadow: `0 0 14px ${colors.glow}` }}
+              initial={{ width: '0%' }}
+              animate={{ width: `${score}%` }}
+              transition={{ duration: 1.2, ease: [0.16, 1, 0.3, 1] }}
+            />
+          </div>
+          <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: 5 }}>
+            {[0, 25, 50, 75, 100].map(v => (
+              <span key={v} style={{ fontFamily: 'var(--font-mono)', fontSize: 9, color: 'var(--muted)', letterSpacing: '0.04em' }}>{v}</span>
+            ))}
+          </div>
+        </div>
       </div>
     </div>
   )
