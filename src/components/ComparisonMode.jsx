@@ -17,9 +17,10 @@ function safeParseJSON(raw) {
 
 function Spinner() {
   return (
-    <svg className="w-4 h-4 animate-spin shrink-0" viewBox="0 0 24 24" fill="none">
-      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.4 0 0 5.4 0 12h4z" />
+    <svg style={{ width: 16, height: 16, flexShrink: 0, animation: 'spin 0.8s linear infinite' }} viewBox="0 0 24 24" fill="none">
+      <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
+      <circle cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" style={{ opacity: 0.25 }} />
+      <path fill="currentColor" style={{ opacity: 0.75 }} d="M4 12a8 8 0 018-8V0C5.4 0 0 5.4 0 12h4z" />
     </svg>
   )
 }
@@ -33,46 +34,88 @@ function ResultCard({ label, claim, result, isWinner }) {
       initial={{ opacity: 0, y: 16 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.35, ease: [0.16, 1, 0.3, 1] }}
-      className="rounded-2xl border p-5 space-y-4 relative overflow-hidden"
       style={{
-        background: '#13131a',
-        borderColor: isWinner ? '#fbbf24' : '#1e1e2e',
-        boxShadow: isWinner ? '0 0 20px rgba(251,191,36,0.5)' : 'none',
+        borderRadius: 10,
+        border: `1px solid ${isWinner ? 'var(--amber-dim)' : 'var(--border-mid)'}`,
+        padding: 18,
+        background: 'var(--bg)',
+        boxShadow: isWinner ? '0 0 28px var(--amber-glow)' : 'none',
         transition: 'border-color 0.3s, box-shadow 0.3s',
+        display: 'flex',
+        flexDirection: 'column',
+        gap: 14,
       }}
     >
       {isWinner && (
-        <div
-          className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-bold text-amber-300"
-          style={{ background: 'rgba(251,191,36,0.12)', border: '1px solid rgba(251,191,36,0.35)' }}
-        >
-          🏆 Winner
-        </div>
+        <span style={{
+          display: 'inline-flex', alignItems: 'center', gap: 6, alignSelf: 'flex-start',
+          padding: '3px 10px', borderRadius: 20,
+          fontFamily: 'var(--font-ui)', fontSize: 11, fontWeight: 700, letterSpacing: '0.08em',
+          color: 'var(--amber)', background: 'var(--amber-subtle)', border: '1px solid rgba(232,160,32,0.35)',
+        }}>
+          🏆 WINNER
+        </span>
       )}
 
       <div>
-        <p className="text-[10px] font-semibold text-gray-500 uppercase tracking-widest mb-1">{label}</p>
-        <p className="text-sm text-gray-300 leading-relaxed line-clamp-3">{claim}</p>
+        <p style={{ fontFamily: 'var(--font-ui)', fontSize: 10, fontWeight: 700, letterSpacing: '0.20em', textTransform: 'uppercase', color: 'var(--muted)', marginBottom: 6 }}>
+          {label}
+        </p>
+        <p style={{ fontFamily: 'var(--font-body)', fontSize: 14, color: 'var(--cream-dim)', lineHeight: 1.55, display: '-webkit-box', WebkitLineClamp: 3, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>
+          {claim}
+        </p>
       </div>
 
       <StrengthMeter score={score} />
 
       {counter && (
-        <div
-          className="p-3 rounded-xl text-xs text-gray-400 leading-relaxed"
-          style={{ background: 'rgba(239,68,68,0.05)', borderLeft: '2px solid #ef4444' }}
-        >
+        <div style={{
+          padding: '10px 14px', borderRadius: 6,
+          background: 'var(--red-subtle)', borderLeft: '3px solid var(--red)',
+          fontFamily: 'var(--font-body)', fontSize: 13, color: 'var(--cream-dim)', lineHeight: 1.5,
+        }}>
           {counter}
         </div>
       )}
 
       {result?.verdict && (
-        <p className="text-xs text-gray-600 italic leading-relaxed">
+        <p style={{ fontFamily: 'var(--font-body)', fontSize: 13, fontStyle: 'italic', color: 'var(--muted-light)', lineHeight: 1.5 }}>
           &ldquo;{result.verdict}&rdquo;
         </p>
       )}
     </motion.div>
   )
+}
+
+const LABEL_STYLE = {
+  fontFamily: 'var(--font-ui)',
+  fontSize: 11,
+  fontWeight: 700,
+  letterSpacing: '0.20em',
+  textTransform: 'uppercase',
+  color: 'var(--muted-light)',
+  display: 'block',
+  textAlign: 'left',
+  marginBottom: 8,
+}
+
+const TEXTAREA_BASE = {
+  flex: 1,
+  minHeight: 150,
+  resize: 'none',
+  padding: '12px 14px',
+  borderRadius: 8,
+  border: '1px solid var(--border-mid)',
+  background: 'var(--bg)',
+  color: 'var(--cream)',
+  fontFamily: 'var(--font-body)',
+  fontSize: 15,
+  lineHeight: 1.6,
+  outline: 'none',
+  transition: 'border-color 0.2s',
+  caretColor: 'var(--amber)',
+  width: '100%',
+  boxSizing: 'border-box',
 }
 
 export default function ComparisonMode({ apiKey }) {
@@ -117,43 +160,58 @@ export default function ComparisonMode({ apiKey }) {
       ? scoreA > scoreB ? 'a' : scoreB > scoreA ? 'b' : 'tie'
       : null
 
+  const canCompare = !!claimA.trim() && !!claimB.trim() && !isLoading
+
   return (
-    <div className="space-y-5">
-      {/* Two textareas */}
-      <div className="grid grid-cols-2 gap-4">
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
+      {/* Two textareas — CSS grid forces equal width; flex column + flex:1 forces equal height */}
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem', alignItems: 'stretch' }}>
         {[
           { label: 'Argument A', value: claimA, set: setClaimA, placeholder: 'Enter first argument…' },
           { label: 'Argument B', value: claimB, set: setClaimB, placeholder: 'Enter second argument…' },
         ].map(({ label, value, set, placeholder }) => (
-          <div key={label} className="space-y-2">
-            <label className="text-xs font-semibold text-gray-500 uppercase tracking-widest block">
-              {label}
-            </label>
+          <div key={label} style={{ display: 'flex', flexDirection: 'column' }}>
+            <label style={LABEL_STYLE}>{label}</label>
             <textarea
               value={value}
-              onChange={(e) => set(e.target.value.slice(0, MAX_CHARS))}
+              onChange={e => set(e.target.value.slice(0, MAX_CHARS))}
               placeholder={placeholder}
-              style={{ minHeight: '120px', resize: 'none' }}
-              className="w-full px-4 py-3 rounded-xl text-sm text-gray-200 leading-relaxed
-                         bg-[#0a0a0f] border border-[#1e1e2e] placeholder-gray-600
-                         outline-none transition-all duration-200
-                         focus:border-[#3b82f6] focus:ring-2 focus:ring-[#3b82f6]/15"
+              style={TEXTAREA_BASE}
+              onFocus={e => { e.target.style.borderColor = 'var(--amber-dim)' }}
+              onBlur={e => { e.target.style.borderColor = 'var(--border-mid)' }}
             />
+            <span style={{
+              fontFamily: 'var(--font-mono)', fontSize: 10, letterSpacing: '0.05em',
+              color: value.length > 450 ? 'var(--red-light)' : 'var(--muted)',
+              marginTop: 5, textAlign: 'right',
+            }}>
+              {value.length}/{MAX_CHARS}
+            </span>
           </div>
         ))}
       </div>
 
-      {/* Compare button */}
-      <div className="flex justify-center">
+      {/* Compare button — centered below both textareas */}
+      <div style={{ display: 'flex', justifyContent: 'center', marginTop: 4 }}>
         <button
           onClick={compare}
-          disabled={!claimA.trim() || !claimB.trim() || isLoading}
-          className="flex items-center gap-2 px-6 min-h-[48px] rounded-xl text-sm font-semibold
-                     bg-[#3b82f6] text-white disabled:opacity-40 disabled:cursor-not-allowed
-                     hover:bg-[#2563eb] active:scale-[0.98] transition-all duration-150"
-          style={{ boxShadow: '0 0 20px rgba(59,130,246,0.4)' }}
+          disabled={!canCompare}
+          style={{
+            display: 'flex', alignItems: 'center', gap: 8,
+            padding: '0 28px', minHeight: 48, borderRadius: 8,
+            border: '1px solid var(--amber-dim)',
+            background: canCompare ? 'var(--amber)' : 'transparent',
+            color: canCompare ? '#0A0808' : 'var(--muted)',
+            fontFamily: 'var(--font-display)', fontSize: 18, letterSpacing: '0.08em',
+            cursor: canCompare ? 'pointer' : 'not-allowed',
+            transition: 'all 0.18s',
+            boxShadow: canCompare ? '0 0 22px rgba(232,160,32,0.4)' : 'none',
+            opacity: canCompare ? 1 : 0.42,
+          }}
+          onMouseEnter={e => { if (canCompare) e.currentTarget.style.boxShadow = '0 0 32px rgba(232,160,32,0.55)' }}
+          onMouseLeave={e => { if (canCompare) e.currentTarget.style.boxShadow = '0 0 22px rgba(232,160,32,0.4)' }}
         >
-          {isLoading ? <><Spinner /> Comparing…</> : '⚖️ Compare Arguments'}
+          {isLoading ? <><Spinner /> COMPARING…</> : '⚖ COMPARE ARGUMENTS'}
         </button>
       </div>
 
@@ -164,28 +222,38 @@ export default function ComparisonMode({ apiKey }) {
             initial={{ opacity: 0, y: -4 }}
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0 }}
-            className="px-4 py-3 rounded-xl border border-red-800/40 text-red-400 text-sm"
-            style={{ background: 'rgba(239,68,68,0.07)' }}
+            style={{
+              padding: '12px 16px', borderRadius: 8,
+              border: '1px solid rgba(194,56,40,0.3)', background: 'var(--red-subtle)',
+              fontFamily: 'var(--font-ui)', fontSize: 13, color: 'var(--red-light)',
+            }}
           >
-            ⚠️ {error}
+            ⚠ {error}
           </motion.div>
         )}
       </AnimatePresence>
 
       {/* Results */}
-      {results && (
-        <div className="space-y-4">
-          {winner === 'tie' && (
-            <div className="text-center py-2 text-sm text-gray-400">
-              🤝 It&apos;s a tie — both arguments scored equally.
+      <AnimatePresence>
+        {results && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            style={{ display: 'flex', flexDirection: 'column', gap: 14 }}
+          >
+            {winner === 'tie' && (
+              <p style={{ textAlign: 'center', fontFamily: 'var(--font-ui)', fontSize: 13, color: 'var(--muted-light)', letterSpacing: '0.06em' }}>
+                🤝 IT&apos;S A TIE — both arguments scored equally.
+              </p>
+            )}
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
+              <ResultCard label="Argument A" claim={claimA} result={results.a} isWinner={winner === 'a'} />
+              <ResultCard label="Argument B" claim={claimB} result={results.b} isWinner={winner === 'b'} />
             </div>
-          )}
-          <div className="grid grid-cols-2 gap-4">
-            <ResultCard label="Argument A" claim={claimA} result={results.a} isWinner={winner === 'a'} />
-            <ResultCard label="Argument B" claim={claimB} result={results.b} isWinner={winner === 'b'} />
-          </div>
-        </div>
-      )}
+          </motion.div>
+        )}
+      </AnimatePresence>
     </div>
   )
 }

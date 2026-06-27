@@ -296,7 +296,7 @@ export default function ArgumentArena({ apiKey, onNeedSettings }) {
       {/* ── Comparison mode ──────────────────────────────────────────────────── */}
       {compareMode ? (
         <Suspense fallback={<div style={{ height: 192, borderRadius: 10, background: 'var(--bg-card)', border: '1px solid var(--border-mid)', animation: 'pulse 1.5s infinite' }} />}>
-          <div style={{ borderRadius: 10, border: '1px solid var(--border-mid)', padding: 20, background: 'var(--bg-card)' }}>
+          <div style={{ borderRadius: 10, border: '1px solid var(--border-mid)', padding: 20, background: 'var(--bg-card)', maxWidth: 860, margin: '0 auto', width: '100%', boxSizing: 'border-box' }}>
             <ComparisonMode apiKey={apiKey} />
           </div>
         </Suspense>
