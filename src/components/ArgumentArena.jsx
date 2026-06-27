@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect, useCallback, lazy, Suspense, memo } from 'react'
+import { useState, useRef, useEffect, lazy, Suspense } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { useDebateAI } from '../hooks/useDebateAI'
 import { useTypewriter } from '../hooks/useTypewriter'
@@ -26,7 +26,11 @@ function reducedMotion() {
   return typeof window !== 'undefined' && window.matchMedia('(prefers-reduced-motion: reduce)').matches
 }
 
-// ─── Typewriter text (used for counterarg cards) ──────────────────────────────
+function dur(ms) {
+  return reducedMotion() ? 0 : ms
+}
+
+// ─── Typewriter text ──────────────────────────────────────────────────────────
 
 function TypewriterText({ text, delay = 0, speed = 11 }) {
   const { displayText, isDone } = useTypewriter(text, speed, delay)
@@ -43,7 +47,7 @@ function TypewriterText({ text, delay = 0, speed = 11 }) {
   )
 }
 
-// ─── Sub-components ──────────────────────────────────────────────────────────
+// ─── Sub-components ───────────────────────────────────────────────────────────
 
 function ScoreBadge({ score }) {
   if (score === null || score === undefined) return null
@@ -80,7 +84,7 @@ function HistoryCard({ entry, index }) {
     <motion.div
       initial={{ opacity: 0, y: 8 }}
       animate={{ opacity: 1, y: 0 }}
-      transition={{ delay: index * 0.06, duration: reducedMotion() ? 0 : 0.25 }}
+      transition={{ delay: index * 0.06, duration: dur(0.25) }}
       className="rounded-xl border border-[#1e1e2e] overflow-hidden"
       style={{ background: '#0f0f14' }}
     >
@@ -100,29 +104,27 @@ function HistoryCard({ entry, index }) {
       <AnimatePresence initial={false}>
         {expanded && (
           <motion.div
+            key="history-detail"
             initial={{ height: 0, opacity: 0 }}
             animate={{ height: 'auto', opacity: 1 }}
             exit={{ height: 0, opacity: 0 }}
-            transition={{ duration: reducedMotion() ? 0 : 0.2, ease: 'easeInOut' }}
+            transition={{ duration: dur(0.2), ease: 'easeInOut' }}
             className="overflow-hidden"
           >
             <div className="px-4 pb-4 pt-3 space-y-3 border-t border-[#1e1e2e]">
               <p className="text-xs text-gray-400 leading-relaxed">{entry.claim}</p>
               {entry.mode === 'attack' && entry.result.counterarguments?.[0] && (
-                <div className="p-3 rounded-lg text-xs text-gray-300 leading-relaxed"
-                     style={{ background: '#0a0606', borderLeft: '2px solid #ef4444' }}>
+                <div className="p-3 rounded-lg text-xs text-gray-300 leading-relaxed" style={{ background: '#0a0606', borderLeft: '2px solid #ef4444' }}>
                   {entry.result.counterarguments[0]}
                 </div>
               )}
               {entry.mode === 'defend' && entry.result.defenses?.[0] && (
-                <div className="p-3 rounded-lg text-xs text-gray-300 leading-relaxed"
-                     style={{ background: '#05080f', borderLeft: '2px solid #3b82f6' }}>
+                <div className="p-3 rounded-lg text-xs text-gray-300 leading-relaxed" style={{ background: '#05080f', borderLeft: '2px solid #3b82f6' }}>
                   {entry.result.defenses[0]}
                 </div>
               )}
               {entry.mode === 'coach' && entry.result.rewritten_argument && (
-                <div className="p-3 rounded-lg text-xs text-gray-300 leading-relaxed"
-                     style={{ background: '#050a05', borderLeft: '2px solid #22c55e' }}>
+                <div className="p-3 rounded-lg text-xs text-gray-300 leading-relaxed" style={{ background: '#050a05', borderLeft: '2px solid #22c55e' }}>
                   {entry.result.rewritten_argument}
                 </div>
               )}
@@ -156,12 +158,8 @@ function AnalyzingSkeleton() {
 
 // ─── Main component ───────────────────────────────────────────────────────────
 
-export default function ArgumentArena({ apiKey, externalDebate, onNeedSettings }) {
-  const ownDebate = useDebateAI()
-  const {
-    result, isLoading, error, mode, history,
-    analyzeArgument, clearHistory, setMode,
-  } = externalDebate ?? ownDebate
+export default function ArgumentArena({ apiKey, onNeedSettings }) {
+  const { result, isLoading, error, mode, history, analyzeArgument, clearHistory, setMode } = useDebateAI()
 
   const [claim, setClaim] = useState('')
   const [compareMode, setCompareMode] = useState(false)
@@ -169,34 +167,31 @@ export default function ArgumentArena({ apiKey, externalDebate, onNeedSettings }
 
   const textareaRef = useRef(null)
   const scrollAnchorRef = useRef(null)
-  const resizeTimer = useRef(null)
 
-  // Debounced auto-resize
-  const autoResize = useCallback(() => {
-    clearTimeout(resizeTimer.current)
-    resizeTimer.current = setTimeout(() => {
-      const el = textareaRef.current
-      if (!el) return
-      el.style.height = 'auto'
-      el.style.height = `${Math.min(el.scrollHeight, 300)}px`
-    }, 40)
-  }, [])
-
-  useEffect(() => () => clearTimeout(resizeTimer.current), [])
+  // Auto-resize textarea whenever claim changes
+  useEffect(() => {
+    const el = textareaRef.current
+    if (!el) return
+    el.style.height = 'auto'
+    el.style.height = `${Math.min(el.scrollHeight, 300)}px`
+  }, [claim])
 
   // Scroll to results when they arrive
   useEffect(() => {
     if (result && scrollAnchorRef.current) {
-      setTimeout(() => scrollAnchorRef.current?.scrollIntoView({ behavior: 'smooth', block: 'nearest' }), 150)
+      setTimeout(() => {
+        scrollAnchorRef.current?.scrollIntoView({ behavior: 'smooth', block: 'nearest' })
+      }, 150)
     }
   }, [result])
 
-  // Rate-limit countdown
+  // Rate-limit countdown: reset on error type change
   useEffect(() => {
     if (error?.type === 'rate_limit') setCountdown(10)
     else setCountdown(null)
   }, [error?.type])
 
+  // Decrement countdown every second
   useEffect(() => {
     if (!countdown || countdown <= 0) return
     const id = setTimeout(() => setCountdown((c) => c - 1), 1000)
@@ -210,7 +205,6 @@ export default function ArgumentArena({ apiKey, externalDebate, onNeedSettings }
 
   function handleClaimChange(e) {
     setClaim(e.target.value.slice(0, MAX_CHARS))
-    autoResize()
   }
 
   function handleKeyDown(e) {
@@ -239,8 +233,8 @@ export default function ArgumentArena({ apiKey, externalDebate, onNeedSettings }
     if (textareaRef.current) textareaRef.current.style.height = '120px'
   }
 
-  // Score + delta
   const score = getScore(mode, result)
+
   let previousScore = null
   if (history.length >= 2) {
     const prev = history[history.length - 2]
@@ -252,32 +246,38 @@ export default function ArgumentArena({ apiKey, externalDebate, onNeedSettings }
   const wordCount = claim.trim() ? claim.trim().split(/\s+/).length : 0
   const recentHistory = [...history].reverse().slice(0, 3)
 
-  // Top content for ShareCard
   const topCounterargument =
     result?.counterarguments?.[0] ?? result?.defenses?.[0] ?? result?.rewritten_argument ?? null
 
-  const dur = (ms) => reducedMotion() ? 0 : ms
-
   return (
     <div className="space-y-5">
-      {/* Topic presets */}
-      <TopicPresets onSelect={(topic) => { setClaim(topic); setTimeout(autoResize, 0); textareaRef.current?.focus() }} />
+      {/* Mode selector */}
+      <ModeSelector currentMode={mode} onModeChange={setMode} />
 
-      {/* Compare mode toggle — hidden on mobile */}
+      {/* Topic presets */}
+      <TopicPresets
+        onSelect={(topic) => {
+          setClaim(topic)
+          textareaRef.current?.focus()
+        }}
+      />
+
+      {/* Compare mode toggle — desktop only */}
       <div className="hidden sm:flex justify-end">
         <button
           onClick={() => setCompareMode((v) => !v)}
-          className="flex items-center gap-2 px-3 min-h-[36px] rounded-lg text-xs font-medium
-                     border transition-all duration-150"
-          style={compareMode
-            ? { background: 'rgba(59,130,246,0.1)', borderColor: 'rgba(59,130,246,0.4)', color: '#60a5fa' }
-            : { background: 'transparent', borderColor: '#1e1e2e', color: '#6b7280' }}
+          className="flex items-center gap-2 px-3 min-h-[36px] rounded-lg text-xs font-medium border transition-all duration-150"
+          style={
+            compareMode
+              ? { background: 'rgba(59,130,246,0.1)', borderColor: 'rgba(59,130,246,0.4)', color: '#60a5fa' }
+              : { background: 'transparent', borderColor: '#1e1e2e', color: '#6b7280' }
+          }
         >
           {compareMode ? '✕ Exit comparison' : '⚖️ Compare two arguments'}
         </button>
       </div>
 
-      {/* ── Comparison mode (lazy) ─────────────────────────────────── */}
+      {/* ── Comparison mode (lazy) ──────────────────────────────────────────── */}
       {compareMode ? (
         <Suspense fallback={<div className="h-48 rounded-2xl bg-[#13131a] border border-[#1e1e2e] animate-pulse" />}>
           <div className="rounded-2xl border border-[#1e1e2e] p-5" style={{ background: '#13131a' }}>
@@ -286,11 +286,8 @@ export default function ArgumentArena({ apiKey, externalDebate, onNeedSettings }
         </Suspense>
       ) : (
         <>
-          {/* ── Input card ─────────────────────────────────────────── */}
+          {/* ── Input card ──────────────────────────────────────────────────── */}
           <div className="rounded-2xl border border-[#1e1e2e] p-5 space-y-4" style={{ background: '#13131a' }}>
-            {!externalDebate && <ModeSelector currentMode={mode} onModeChange={setMode} />}
-
-            {/* Textarea */}
             <div className="relative">
               <textarea
                 ref={textareaRef}
@@ -299,37 +296,37 @@ export default function ArgumentArena({ apiKey, externalDebate, onNeedSettings }
                 onKeyDown={handleKeyDown}
                 placeholder="Enter any claim, opinion, or argument to analyze..."
                 style={{ minHeight: '120px', maxHeight: '300px', resize: 'none' }}
-                className="w-full px-4 py-3 pb-8 rounded-xl text-sm text-gray-200 leading-relaxed
-                           bg-[#0a0a0f] border border-[#1e1e2e] placeholder-gray-600
-                           outline-none transition-all duration-200
-                           focus:border-[#3b82f6] focus:ring-2 focus:ring-[#3b82f6]/15"
+                className="w-full px-4 py-3 pb-8 rounded-xl text-sm text-gray-200 leading-relaxed bg-[#0a0a0f] border border-[#1e1e2e] placeholder-gray-600 outline-none transition-all duration-200 focus:border-[#3b82f6]"
               />
 
               <AnimatePresence>
                 {claim && (
                   <motion.button
+                    key="clear-btn"
                     initial={{ opacity: 0, scale: 0.8 }}
                     animate={{ opacity: 1, scale: 1 }}
                     exit={{ opacity: 0, scale: 0.8 }}
                     transition={{ duration: dur(0.12) }}
-                    onClick={() => { setClaim(''); if (textareaRef.current) textareaRef.current.style.height = '120px'; textareaRef.current?.focus() }}
-                    className="absolute top-3 right-3 w-7 h-7 flex items-center justify-center
-                               rounded-full text-gray-600 hover:text-white hover:bg-[#1e1e2e]
-                               transition-all text-xs"
+                    onClick={() => {
+                      setClaim('')
+                      textareaRef.current?.focus()
+                    }}
+                    className="absolute top-3 right-3 w-7 h-7 flex items-center justify-center rounded-full text-gray-600 hover:text-white hover:bg-[#1e1e2e] transition-all text-xs"
                     aria-label="Clear text"
-                  >✕</motion.button>
+                  >
+                    ✕
+                  </motion.button>
                 )}
               </AnimatePresence>
 
               <span
-                className="absolute bottom-3 right-3 text-xs tabular-nums select-none"
+                className="absolute bottom-3 right-3 text-xs tabular-nums select-none pointer-events-none"
                 style={{ color: claim.length > 450 ? '#f87171' : '#374151' }}
               >
                 {claim.length}/{MAX_CHARS}
               </span>
             </div>
 
-            {/* Submit row */}
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
               <span className="text-xs text-gray-500 select-none">
                 {wordCount > 0 ? `${wordCount} word${wordCount !== 1 ? 's' : ''}` : 'Type or pick a topic above'}
@@ -345,9 +342,7 @@ export default function ArgumentArena({ apiKey, externalDebate, onNeedSettings }
                 <button
                   onClick={submit}
                   disabled={!claim.trim() || isLoading || countdown > 0}
-                  className="w-full sm:w-auto flex items-center justify-center gap-2 px-5 min-h-[48px] rounded-xl text-sm font-semibold
-                             bg-[#3b82f6] text-white disabled:opacity-40 disabled:cursor-not-allowed
-                             hover:bg-[#2563eb] active:scale-[0.98] transition-all duration-150"
+                  className="w-full sm:w-auto flex items-center justify-center gap-2 px-5 min-h-[48px] rounded-xl text-sm font-semibold bg-[#3b82f6] text-white disabled:opacity-40 disabled:cursor-not-allowed hover:bg-[#2563eb] active:scale-[0.98] transition-all duration-150"
                   style={{ boxShadow: claim.trim() && !isLoading && !countdown ? '0 0 20px rgba(59,130,246,0.45)' : 'none' }}
                 >
                   {isLoading ? (
@@ -364,21 +359,22 @@ export default function ArgumentArena({ apiKey, externalDebate, onNeedSettings }
             </div>
           </div>
 
-          {/* ── Error display ───────────────────────────────────────── */}
+          {/* ── Error display ────────────────────────────────────────────────── */}
           <AnimatePresence>
             {error && (
               <motion.div
+                key="error-msg"
                 initial={{ opacity: 0, y: -6 }}
                 animate={{ opacity: 1, y: 0 }}
                 exit={{ opacity: 0 }}
                 transition={{ duration: dur(0.2) }}
-                className="px-4 py-3 rounded-xl border border-red-800/40 text-sm space-y-2"
+                className="px-4 py-3 rounded-xl border border-red-800/40 text-sm"
                 style={{ background: 'rgba(239,68,68,0.07)' }}
               >
                 {error.type === 'rate_limit' ? (
                   <div className="flex items-center justify-between flex-wrap gap-2">
                     <span className="text-amber-400">
-                      ⏱ You&apos;re going too fast! {countdown > 0 ? `Wait ${countdown}s…` : 'Ready to retry.'}
+                      ⏱ Going too fast! {countdown > 0 ? `Wait ${countdown}s…` : 'Ready to retry.'}
                     </span>
                     {countdown === 0 && (
                       <button onClick={submit} className="text-xs px-3 py-1 rounded-lg bg-[#1e1e2e] text-gray-300 hover:text-white transition-colors">
@@ -396,7 +392,10 @@ export default function ArgumentArena({ apiKey, externalDebate, onNeedSettings }
                 ) : error.type === 'no_api_key' ? (
                   <div className="flex items-center justify-between flex-wrap gap-2">
                     <span className="text-amber-400">🔑 Add your Groq API key to continue</span>
-                    <button onClick={() => onNeedSettings?.()} className="text-xs px-3 py-1 rounded-lg border border-amber-500/40 text-amber-300 hover:bg-amber-500/10 transition-colors">
+                    <button
+                      onClick={() => onNeedSettings?.()}
+                      className="text-xs px-3 py-1 rounded-lg border border-amber-500/40 text-amber-300 hover:bg-amber-500/10 transition-colors"
+                    >
                       Open Settings
                     </button>
                   </div>
@@ -410,7 +409,12 @@ export default function ArgumentArena({ apiKey, externalDebate, onNeedSettings }
           {/* Loading skeleton */}
           <AnimatePresence>
             {isLoading && (
-              <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
+              <motion.div
+                key="skeleton"
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                exit={{ opacity: 0 }}
+              >
                 <AnalyzingSkeleton />
               </motion.div>
             )}
@@ -418,11 +422,11 @@ export default function ArgumentArena({ apiKey, externalDebate, onNeedSettings }
 
           <div ref={scrollAnchorRef} />
 
-          {/* ── Results ────────────────────────────────────────────── */}
+          {/* ── Results ──────────────────────────────────────────────────────── */}
           <AnimatePresence mode="wait">
             {result && !isLoading && (
               <motion.div
-                key={history.length}
+                key={`result-${history.length}`}
                 initial={{ opacity: 0, y: 28 }}
                 animate={{ opacity: 1, y: 0 }}
                 exit={{ opacity: 0, y: -12 }}
@@ -431,7 +435,10 @@ export default function ArgumentArena({ apiKey, externalDebate, onNeedSettings }
               >
                 {/* Strength meter */}
                 <div className="rounded-2xl border border-[#1e1e2e] p-5" style={{ background: '#13131a' }}>
-                  <StrengthMeter score={score} previousScore={previousScore !== score ? previousScore : null} />
+                  <StrengthMeter
+                    score={score}
+                    previousScore={previousScore !== null && previousScore !== score ? previousScore : null}
+                  />
                 </div>
 
                 {/* Mode-specific cards */}
@@ -447,12 +454,7 @@ export default function ArgumentArena({ apiKey, externalDebate, onNeedSettings }
                             animate={{ opacity: 1, x: 0 }}
                             transition={{ delay: dur(0.08 + i * 0.1), duration: dur(0.3) }}
                             className="flex gap-4 p-4 rounded-xl"
-                            style={{
-                              background: 'rgba(239,68,68,0.04)',
-                              border: '1px solid rgba(239,68,68,0.12)',
-                              borderLeftWidth: '3px',
-                              borderLeftColor: '#ef4444',
-                            }}
+                            style={{ background: 'rgba(239,68,68,0.04)', border: '1px solid rgba(239,68,68,0.12)', borderLeftWidth: '3px', borderLeftColor: '#ef4444' }}
                           >
                             <span className="text-[#ef4444] font-black text-lg shrink-0 leading-none mt-0.5 select-none">{i + 1}</span>
                             <p className="text-sm text-gray-300 leading-relaxed">
@@ -475,12 +477,7 @@ export default function ArgumentArena({ apiKey, externalDebate, onNeedSettings }
                             animate={{ opacity: 1, x: 0 }}
                             transition={{ delay: dur(0.08 + i * 0.1), duration: dur(0.3) }}
                             className="flex gap-4 p-4 rounded-xl"
-                            style={{
-                              background: 'rgba(59,130,246,0.04)',
-                              border: '1px solid rgba(59,130,246,0.12)',
-                              borderLeftWidth: '3px',
-                              borderLeftColor: '#3b82f6',
-                            }}
+                            style={{ background: 'rgba(59,130,246,0.04)', border: '1px solid rgba(59,130,246,0.12)', borderLeftWidth: '3px', borderLeftColor: '#3b82f6' }}
                           >
                             <span className="text-[#3b82f6] font-black text-lg shrink-0 leading-none mt-0.5 select-none">{i + 1}</span>
                             <p className="text-sm text-gray-300 leading-relaxed">
@@ -491,7 +488,9 @@ export default function ArgumentArena({ apiKey, externalDebate, onNeedSettings }
                       </div>
                       {result.strongest_defense && (
                         <motion.div
-                          initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: dur(0.4) }}
+                          initial={{ opacity: 0 }}
+                          animate={{ opacity: 1 }}
+                          transition={{ delay: dur(0.4) }}
                           className="p-3 rounded-xl text-xs text-[#60a5fa] leading-relaxed"
                           style={{ background: 'rgba(59,130,246,0.07)', border: '1px solid rgba(59,130,246,0.2)' }}
                         >
@@ -505,7 +504,9 @@ export default function ArgumentArena({ apiKey, externalDebate, onNeedSettings }
                     <>
                       <p className="text-xs font-medium text-gray-500 uppercase tracking-widest">Rewritten Argument</p>
                       <motion.div
-                        initial={{ opacity: 0, scale: 0.98 }} animate={{ opacity: 1, scale: 1 }} transition={{ duration: dur(0.3) }}
+                        initial={{ opacity: 0, scale: 0.98 }}
+                        animate={{ opacity: 1, scale: 1 }}
+                        transition={{ duration: dur(0.3) }}
                         className="p-4 rounded-xl text-sm text-gray-200 leading-relaxed"
                         style={{ background: 'rgba(34,197,94,0.06)', border: '1px solid rgba(34,197,94,0.2)', boxShadow: '0 0 24px rgba(34,197,94,0.07)' }}
                       >
@@ -517,7 +518,8 @@ export default function ArgumentArena({ apiKey, externalDebate, onNeedSettings }
                           {result.techniques_used.map((t, i) => (
                             <motion.div
                               key={i}
-                              initial={{ opacity: 0, x: -10 }} animate={{ opacity: 1, x: 0 }}
+                              initial={{ opacity: 0, x: -10 }}
+                              animate={{ opacity: 1, x: 0 }}
                               transition={{ delay: dur(0.18 + i * 0.08) }}
                               className="flex items-start gap-2.5 text-sm text-gray-300"
                             >
@@ -537,10 +539,12 @@ export default function ArgumentArena({ apiKey, externalDebate, onNeedSettings }
                   </div>
                 )}
 
-                {/* Verdict callout */}
+                {/* Verdict / coaching tip */}
                 {(result.verdict || result.coaching_tip) && (
                   <motion.div
-                    initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: dur(0.3) }}
+                    initial={{ opacity: 0 }}
+                    animate={{ opacity: 1 }}
+                    transition={{ delay: dur(0.3) }}
                     className="rounded-2xl border p-5"
                     style={{ background: 'rgba(245,158,11,0.05)', borderColor: 'rgba(245,158,11,0.18)' }}
                   >
@@ -563,40 +567,54 @@ export default function ArgumentArena({ apiKey, externalDebate, onNeedSettings }
                 <div className="flex flex-wrap gap-2 pt-1">
                   {mode === 'attack' && (
                     <motion.button
-                      initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: dur(0.35) }}
-                      onClick={() => switchMode('defend')} disabled={isLoading || countdown > 0}
-                      className="flex items-center gap-2 px-4 min-h-[44px] rounded-xl text-sm font-medium
-                                 transition-all duration-150 disabled:opacity-40
-                                 border border-[#3b82f6]/30 text-[#60a5fa] hover:border-[#3b82f6]/60 hover:bg-[#1a2d4a]"
+                      initial={{ opacity: 0, y: 6 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      transition={{ delay: dur(0.35) }}
+                      onClick={() => switchMode('defend')}
+                      disabled={isLoading || countdown > 0}
+                      className="flex items-center gap-2 px-4 min-h-[44px] rounded-xl text-sm font-medium transition-all duration-150 disabled:opacity-40 border border-[#3b82f6]/30 text-[#60a5fa] hover:border-[#3b82f6]/60 hover:bg-[#1a2d4a]"
                       style={{ background: 'rgba(59,130,246,0.07)' }}
-                    >🛡️ Switch to Defend mode</motion.button>
+                    >
+                      🛡️ Switch to Defend mode
+                    </motion.button>
                   )}
                   {mode !== 'coach' && (
                     <motion.button
-                      initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: dur(0.4) }}
-                      onClick={() => switchMode('coach')} disabled={isLoading || countdown > 0}
-                      className="flex items-center gap-2 px-4 min-h-[44px] rounded-xl text-sm font-medium
-                                 transition-all duration-150 disabled:opacity-40
-                                 border border-[#22c55e]/30 text-[#4ade80] hover:border-[#22c55e]/60 hover:bg-[#0e1f10]"
+                      initial={{ opacity: 0, y: 6 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      transition={{ delay: dur(0.4) }}
+                      onClick={() => switchMode('coach')}
+                      disabled={isLoading || countdown > 0}
+                      className="flex items-center gap-2 px-4 min-h-[44px] rounded-xl text-sm font-medium transition-all duration-150 disabled:opacity-40 border border-[#22c55e]/30 text-[#4ade80] hover:border-[#22c55e]/60 hover:bg-[#0e1f10]"
                       style={{ background: 'rgba(34,197,94,0.07)' }}
-                    >🎯 Switch to Coach mode</motion.button>
+                    >
+                      🎯 Switch to Coach mode
+                    </motion.button>
                   )}
                   <motion.button
-                    initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: dur(0.45) }}
+                    initial={{ opacity: 0, y: 6 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ delay: dur(0.45) }}
                     onClick={handleClear}
-                    className="ml-auto flex items-center gap-2 px-4 min-h-[44px] rounded-xl text-sm font-medium
-                               transition-all duration-150 border border-[#1e1e2e] text-gray-500
-                               hover:border-gray-600 hover:text-gray-300 hover:bg-[#18181f]"
-                  >↩ New argument</motion.button>
+                    className="ml-auto flex items-center gap-2 px-4 min-h-[44px] rounded-xl text-sm font-medium transition-all duration-150 border border-[#1e1e2e] text-gray-500 hover:border-gray-600 hover:text-gray-300 hover:bg-[#18181f]"
+                  >
+                    ↩ New argument
+                  </motion.button>
                 </div>
               </motion.div>
             )}
           </AnimatePresence>
 
-          {/* ── Recent Debates ─────────────────────────────────────── */}
+          {/* ── Recent Debates ───────────────────────────────────────────────── */}
           <AnimatePresence>
             {recentHistory.length > 0 && (
-              <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="space-y-3 pt-2">
+              <motion.div
+                key="history"
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                exit={{ opacity: 0 }}
+                className="space-y-3 pt-2"
+              >
                 <div className="flex items-center gap-4">
                   <span className="text-xs font-medium text-gray-600 uppercase tracking-widest">Recent Debates</span>
                   <button onClick={clearHistory} className="text-xs text-gray-700 hover:text-gray-400 transition-colors">
