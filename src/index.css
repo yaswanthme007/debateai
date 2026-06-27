@@ -49,6 +49,16 @@ body {
   background: #60a5fa;
 }
 
+/* Respect reduced-motion for CSS animations */
+@media (prefers-reduced-motion: reduce) {
+  *, ::before, ::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+
 /* Glow utilities */
 .glow {
   box-shadow: 0 0 20px rgba(59, 130, 246, 0.3);

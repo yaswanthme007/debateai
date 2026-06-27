@@ -1,20 +1,49 @@
 const GROQ_API_URL = 'https://api.groq.com/openai/v1/chat/completions'
 const MODEL = 'llama-3.3-70b-versatile'
 
+export class DebateError extends Error {
+  constructor(message, code) {
+    super(message)
+    this.name = 'DebateError'
+    this.code = code // 'no_api_key' | 'rate_limit' | 'network'
+  }
+}
+
 function getKey(apiKey) {
   const key = apiKey || import.meta.env.VITE_GROQ_API_KEY
-  if (!key) throw new Error('No Groq API key provided. Set VITE_GROQ_API_KEY or pass it directly.')
+  if (!key) throw new DebateError('No Groq API key — add one in Settings.', 'no_api_key')
   return key
 }
 
+async function doFetch(body, apiKey) {
+  let res
+  try {
+    res = await fetch(GROQ_API_URL, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${getKey(apiKey)}`,
+      },
+      body: JSON.stringify(body),
+    })
+  } catch {
+    throw new DebateError('Connection lost. Check your internet and retry.', 'network')
+  }
+
+  if (res.status === 429) {
+    throw new DebateError("You're going too fast! Wait a moment and try again.", 'rate_limit')
+  }
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({ error: { message: res.statusText } }))
+    throw new DebateError(err?.error?.message ?? `Groq API error ${res.status}`, 'network')
+  }
+
+  return res
+}
+
 export async function callGroq(systemPrompt, userMessage, apiKey) {
-  const res = await fetch(GROQ_API_URL, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      Authorization: `Bearer ${getKey(apiKey)}`,
-    },
-    body: JSON.stringify({
+  const res = await doFetch(
+    {
       model: MODEL,
       max_tokens: 1500,
       temperature: 0.7,
@@ -23,26 +52,16 @@ export async function callGroq(systemPrompt, userMessage, apiKey) {
         { role: 'system', content: systemPrompt },
         { role: 'user', content: userMessage },
       ],
-    }),
-  })
-
-  if (!res.ok) {
-    const err = await res.json().catch(() => ({ error: { message: res.statusText } }))
-    throw new Error(err?.error?.message ?? `Groq API error ${res.status}`)
-  }
-
+    },
+    apiKey,
+  )
   const data = await res.json()
   return data.choices?.[0]?.message?.content ?? ''
 }
 
 export async function callGroqStream(systemPrompt, userMessage, apiKey, onChunk) {
-  const res = await fetch(GROQ_API_URL, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      Authorization: `Bearer ${getKey(apiKey)}`,
-    },
-    body: JSON.stringify({
+  const res = await doFetch(
+    {
       model: MODEL,
       max_tokens: 1500,
       temperature: 0.7,
@@ -51,13 +70,9 @@ export async function callGroqStream(systemPrompt, userMessage, apiKey, onChunk)
         { role: 'system', content: systemPrompt },
         { role: 'user', content: userMessage },
       ],
-    }),
-  })
-
-  if (!res.ok) {
-    const err = await res.json().catch(() => ({ error: { message: res.statusText } }))
-    throw new Error(err?.error?.message ?? `Groq API error ${res.status}`)
-  }
+    },
+    apiKey,
+  )
 
   const reader = res.body.getReader()
   const decoder = new TextDecoder()

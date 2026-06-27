@@ -361,26 +361,23 @@ function Footer() {
 
 // ─── Arena section wrapper ────────────────────────────────────────────────────
 
-function ArenaSection({ apiKey }) {
+function ArenaSection({ apiKey, onNeedSettings }) {
   const debate = useDebateAI()
 
   return (
     <section id="arena" className="py-20 px-4 sm:px-6" style={{ borderTop: '1px solid #1e1e2e' }}>
       <div className="max-w-[860px] mx-auto space-y-8">
-        {/* Section label */}
         <div className="text-center">
           <p className="text-xs font-semibold tracking-[0.2em] text-[#3b82f6] uppercase">
             Argument Arena
           </p>
         </div>
 
-        {/* Mode selector — centered, constrained width */}
         <div className="max-w-lg mx-auto">
           <ModeSelector currentMode={debate.mode} onModeChange={debate.setMode} />
         </div>
 
-        {/* Arena */}
-        <ArgumentArena apiKey={apiKey} externalDebate={debate} />
+        <ArgumentArena apiKey={apiKey} externalDebate={debate} onNeedSettings={onNeedSettings} />
       </div>
     </section>
   )
@@ -397,7 +394,7 @@ export default function App() {
       <Navbar apiKey={apiKey} onOpenSettings={() => setSettingsOpen(true)} />
 
       <Hero />
-      <ArenaSection apiKey={apiKey} />
+      <ArenaSection apiKey={apiKey} onNeedSettings={() => setSettingsOpen(true)} />
       <HowItWorks />
       <Footer />
 

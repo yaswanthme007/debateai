@@ -1,5 +1,5 @@
-import { useEffect, useRef, useState } from 'react'
-import { motion, useSpring, useTransform } from 'framer-motion'
+import { memo, useEffect, useRef, useState } from 'react'
+import { motion } from 'framer-motion'
 
 function getColor(score) {
   if (score <= 25) return { bar: '#ef4444', glow: 'rgba(239,68,68,0.4)', text: '#f87171' }
@@ -21,12 +21,18 @@ function CountUp({ target }) {
 
   useEffect(() => {
     if (target === null || target === undefined) return
+
+    const reduced = typeof window !== 'undefined' && window.matchMedia('(prefers-reduced-motion: reduce)').matches
+    if (reduced) {
+      setDisplay(target)
+      return
+    }
+
     const start = performance.now()
     const duration = 1200
 
     function tick(now) {
       const elapsed = Math.min((now - start) / duration, 1)
-      // ease-out cubic
       const eased = 1 - Math.pow(1 - elapsed, 3)
       setDisplay(Math.round(eased * target))
       if (elapsed < 1) frameRef.current = requestAnimationFrame(tick)
@@ -39,7 +45,7 @@ function CountUp({ target }) {
   return <>{display}</>
 }
 
-export default function StrengthMeter({ score, previousScore }) {
+function StrengthMeter({ score, previousScore }) {
   if (score === null || score === undefined) return null
 
   const colors = getColor(score)
@@ -48,27 +54,20 @@ export default function StrengthMeter({ score, previousScore }) {
 
   return (
     <div className="w-full space-y-2">
-      {/* Header row */}
       <div className="flex items-end justify-between">
         <span className="text-xs font-medium text-gray-400 uppercase tracking-widest">
           Argument Strength
         </span>
         <div className="flex items-baseline gap-2">
           {delta !== null && (
-            <span
-              className="text-xs font-semibold"
-              style={{ color: delta >= 0 ? '#4ade80' : '#f87171' }}
-            >
+            <span className="text-xs font-semibold" style={{ color: delta >= 0 ? '#4ade80' : '#f87171' }}>
               {delta >= 0 ? `+${delta} improved` : `${delta} dropped`}
             </span>
           )}
-          <span className="text-xs font-medium" style={{ color: colors.text }}>
-            {label}
-          </span>
+          <span className="text-xs font-medium" style={{ color: colors.text }}>{label}</span>
         </div>
       </div>
 
-      {/* Bar track */}
       <div className="relative w-full h-3 rounded-full bg-[#1e1e2e] overflow-hidden">
         <motion.div
           className="absolute inset-y-0 left-0 rounded-full"
@@ -79,7 +78,6 @@ export default function StrengthMeter({ score, previousScore }) {
         />
       </div>
 
-      {/* Score number */}
       <div className="flex justify-end">
         <span className="text-4xl font-black tabular-nums" style={{ color: colors.text }}>
           <CountUp target={score} />
@@ -89,3 +87,5 @@ export default function StrengthMeter({ score, previousScore }) {
     </div>
   )
 }
+
+export default memo(StrengthMeter)

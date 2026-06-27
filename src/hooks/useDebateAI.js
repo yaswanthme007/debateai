@@ -1,5 +1,5 @@
 import { useState, useCallback } from 'react'
-import { callGroq } from '../lib/groq'
+import { callGroq, DebateError } from '../lib/groq'
 import { ATTACK_PROMPT, DEFEND_PROMPT, COACH_PROMPT } from '../lib/prompts'
 
 const HISTORY_LIMIT = 10
@@ -22,18 +22,17 @@ function selectPrompt(mode) {
 
 function safeParseJSON(raw) {
   try {
-    // Strip accidental markdown fences the model may add despite instructions
     const cleaned = raw.replace(/^```(?:json)?\s*/i, '').replace(/\s*```$/, '').trim()
     return { data: JSON.parse(cleaned), error: null }
   } catch {
-    return { data: null, error: 'Response was not valid JSON. Try again.' }
+    return { data: null, error: true }
   }
 }
 
 export function useDebateAI() {
   const [result, setResult] = useState(null)
   const [isLoading, setIsLoading] = useState(false)
-  const [error, setError] = useState(null)
+  const [error, setError] = useState(null) // { message, type } | null
   const [mode, setMode] = useState('attack')
   const [history, setHistory] = useState([])
 
@@ -44,30 +43,37 @@ export function useDebateAI() {
     setIsLoading(true)
     setError(null)
 
-    // For defend mode, pass the last attack result as context
     const lastResult = history.length > 0 ? history[history.length - 1]?.result : null
     const userMessage = buildUserMessage(activeMode, claim, lastResult)
     const systemPrompt = selectPrompt(activeMode)
 
     try {
       const raw = await callGroq(systemPrompt, userMessage, apiKey)
-      const { data, error: parseError } = safeParseJSON(raw)
+      let parsed = safeParseJSON(raw)
 
-      if (parseError) {
-        setError(parseError)
-        setIsLoading(false)
+      // Silent retry once on bad JSON
+      if (parsed.error) {
+        const raw2 = await callGroq(systemPrompt, userMessage, apiKey)
+        parsed = safeParseJSON(raw2)
+      }
+
+      if (parsed.error) {
+        setError({ message: 'AI response was unclear. Try again.', type: 'bad_json' })
         return
       }
 
-      setResult(data)
-
-      const entry = { claim, mode: activeMode, result: data, timestamp: Date.now() }
-      setHistory(prev => {
+      setResult(parsed.data)
+      const entry = { claim, mode: activeMode, result: parsed.data, timestamp: Date.now() }
+      setHistory((prev) => {
         const updated = [...prev, entry]
         return updated.length > HISTORY_LIMIT ? updated.slice(-HISTORY_LIMIT) : updated
       })
     } catch (err) {
-      setError(err.message)
+      if (err instanceof DebateError) {
+        setError({ message: err.message, type: err.code })
+      } else {
+        setError({ message: err.message || 'Something went wrong.', type: 'network' })
+      }
     } finally {
       setIsLoading(false)
     }
@@ -79,14 +85,5 @@ export function useDebateAI() {
     setError(null)
   }, [])
 
-  return {
-    result,
-    isLoading,
-    error,
-    mode,
-    history,
-    analyzeArgument,
-    clearHistory,
-    setMode,
-  }
+  return { result, isLoading, error, mode, history, analyzeArgument, clearHistory, setMode }
 }

@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { memo, useState } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 
 function FallacyPill({ fallacy, index }) {
@@ -16,7 +16,7 @@ function FallacyPill({ fallacy, index }) {
         onMouseLeave={() => setHovered(false)}
         onFocus={() => setHovered(true)}
         onBlur={() => setHovered(false)}
-        className="px-3 py-1.5 rounded-full text-xs font-semibold tracking-wide cursor-default
+        className="min-h-[36px] px-3 py-1.5 rounded-full text-xs font-semibold tracking-wide cursor-default
                    bg-[#2d1111] border border-[#ef4444]/40 text-[#f87171]
                    hover:bg-[#3d1515] hover:border-[#ef4444]/70 transition-all duration-150"
         style={{ boxShadow: hovered ? '0 0 12px rgba(239,68,68,0.3)' : undefined }}
@@ -45,7 +45,7 @@ function FallacyPill({ fallacy, index }) {
   )
 }
 
-export default function FallacyDetector({ fallacies }) {
+function FallacyDetector({ fallacies }) {
   if (fallacies === null || fallacies === undefined) return null
 
   return (
@@ -73,3 +73,5 @@ export default function FallacyDetector({ fallacies }) {
     </div>
   )
 }
+
+export default memo(FallacyDetector)
