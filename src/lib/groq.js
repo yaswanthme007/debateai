@@ -30,6 +30,9 @@ async function doFetch(body, apiKey) {
     throw new DebateError('Connection lost. Check your internet and retry.', 'network')
   }
 
+  if (res.status === 401) {
+    throw new DebateError('Invalid API key. Check your key in Settings.', 'invalid_key')
+  }
   if (res.status === 429) {
     throw new DebateError("You're going too fast! Wait a moment and try again.", 'rate_limit')
   }

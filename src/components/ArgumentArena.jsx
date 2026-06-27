@@ -448,6 +448,13 @@ export default function ArgumentArena({ apiKey, onNeedSettings }) {
                       OPEN SETTINGS
                     </button>
                   </div>
+                ) : error.type === 'invalid_key' ? (
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 8 }}>
+                    <span style={{ color: 'var(--red-light)', fontWeight: 600 }}>🔑 Invalid API key. Check your key in Settings.</span>
+                    <button onClick={() => onNeedSettings?.()} style={{ fontFamily: 'var(--font-ui)', fontSize: 12, fontWeight: 700, letterSpacing: '0.08em', padding: '4px 12px', borderRadius: 5, border: '1px solid rgba(194,56,40,0.4)', background: 'var(--red-subtle)', color: 'var(--red-light)', cursor: 'pointer' }}>
+                      OPEN SETTINGS
+                    </button>
+                  </div>
                 ) : (
                   <span style={{ color: 'var(--red-light)', fontWeight: 600 }}>⚠ {error.message}</span>
                 )}

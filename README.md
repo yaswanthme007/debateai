@@ -2,7 +2,7 @@
 
 > AI that fights back — so you always win every argument
 
-[![Live Demo](https://img.shields.io/badge/Live-Demo-blue)](https://YOUR_USERNAME.github.io/debateai)
+[![Live Demo](https://img.shields.io/badge/Live-Demo-blue)](https://yaswanthme007.github.io/debateai)
 [![Built for](https://img.shields.io/badge/Built%20for-Hackverse%20X%202026-purple)]()
 [![Powered by](https://img.shields.io/badge/Powered%20by-Groq%20AI-orange)]()
 
@@ -43,7 +43,7 @@ Built in 48 hours for **Hackverse X — Global Tech Innovation 2026**.
 ## Run Locally
 
 ```bash
-git clone https://github.com/YOUR_USERNAME/debateai
+git clone https://github.com/yaswanthme007/debateai
 cd debateai
 npm install
 echo "VITE_GROQ_API_KEY=your_key_here" > .env
@@ -81,11 +81,13 @@ src/
 
 This project deploys automatically to GitHub Pages on every push to `main`.
 
-To set it up on your fork:
+To set it up:
 
-1. Go to **Settings → Pages** and set source to `gh-pages` branch
-2. Add your Groq API key as a repository secret named `VITE_GROQ_API_KEY` *(optional — users can enter their own key in the app)*
-3. Push to `main` — the workflow handles the rest
+1. Go to **Settings → Pages** and set source to **GitHub Actions**
+2. Push to `main` — the workflow handles the rest
+3. Users enter their own Groq API key in the app's Settings modal — no secret needed
+
+> **Security note:** The deployed build does NOT embed any API key. Each user provides their own key via the Settings modal, stored only in their browser's localStorage.
 
 ---
 
