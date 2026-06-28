@@ -8,6 +8,7 @@ import StrengthMeter from './StrengthMeter'
 import FallacyDetector from './FallacyDetector'
 import TopicPresets from './TopicPresets'
 import ShareCard from './ShareCard'
+import { RadarChart, DimensionBars } from './RadarChart'
 
 const ComparisonMode = lazy(() => import('./ComparisonMode'))
 
@@ -21,6 +22,17 @@ function getScore(mode, result) {
   if (mode === 'defend') return result.improved_score ?? null
   if (mode === 'coach')  return result.new_score ?? null
   return null
+}
+
+function getDimensionScores(result, mode) {
+  if (!result) return null
+  const ds = result.dimension_scores
+  if (ds && typeof ds.logic === 'number') return ds
+  // Fallback: distribute overall score evenly across 5 axes
+  const overall = getScore(mode, result)
+  if (overall == null) return null
+  const fb = Math.round(overall / 5)
+  return { logic: fb, evidence: fb, clarity: fb, persuasion: fb, originality: fb }
 }
 
 function reducedMotion() {
@@ -216,11 +228,13 @@ function Spinner() {
 export default function ArgumentArena({ apiKey, onNeedSettings }) {
   const { result, isLoading, error, mode, history, analyzeArgument, clearHistory, setMode } = useDebateAI()
 
-  const [claim, setClaim]           = useState('')
+  const [claim, setClaim]             = useState('')
   const [compareMode, setCompareMode] = useState(false)
-  const [countdown, setCountdown]   = useState(null)
+  const [countdown, setCountdown]     = useState(null)
   const [interimText, setInterimText] = useState('')
-  const [voiceToast, setVoiceToast] = useState(null)
+  const [voiceToast, setVoiceToast]   = useState(null)
+  const [attackDimScores, setAttackDimScores] = useState(null)
+  const [isWide, setIsWide]           = useState(() => window.innerWidth >= 640)
 
   const textareaRef     = useRef(null)
   const scrollAnchorRef = useRef(null)
@@ -294,6 +308,20 @@ export default function ArgumentArena({ apiKey, onNeedSettings }) {
     }
   }, [compareMode, speech])
 
+  // Save attack dimension scores for before/after overlay in defend/coach
+  useEffect(() => {
+    if (result && mode === 'attack') {
+      setAttackDimScores(getDimensionScores(result, 'attack'))
+    }
+  }, [result, mode])
+
+  // Responsive layout
+  useEffect(() => {
+    const fn = () => setIsWide(window.innerWidth >= 640)
+    window.addEventListener('resize', fn, { passive: true })
+    return () => window.removeEventListener('resize', fn)
+  }, [])
+
   function toggleMic() {
     if (speech.isListening) {
       speech.stopListening()
@@ -338,6 +366,7 @@ export default function ArgumentArena({ apiKey, onNeedSettings }) {
     if (speech.isListening) { speech.stopListening(); setInterimText('') }
     setClaim('')
     clearHistory()
+    setAttackDimScores(null)
     if (textareaRef.current) textareaRef.current.style.height = '120px'
   }
 
@@ -350,6 +379,10 @@ export default function ArgumentArena({ apiKey, onNeedSettings }) {
       previousScore = getScore(prev.mode, prev.result)
     }
   }
+
+  const dimensionScores = getDimensionScores(result, mode)
+  const overlayScores   = mode !== 'attack' ? attackDimScores : null
+  const radarSize       = isWide ? 260 : Math.min(window.innerWidth - 88, 280)
 
   const wordCount = claim.trim() ? claim.trim().split(/\s+/).length : 0
   const recentHistory = [...history].reverse().slice(0, 3)
@@ -664,12 +697,48 @@ export default function ArgumentArena({ apiKey, onNeedSettings }) {
                 transition={{ duration: dur(0.38), ease: [0.16, 1, 0.3, 1] }}
                 style={{ display: 'flex', flexDirection: 'column', gap: 14 }}
               >
-                {/* Strength meter */}
+                {/* Radar chart + Strength meter */}
                 <div style={{ borderRadius: 10, border: '1px solid var(--border-mid)', padding: 20, background: 'var(--bg-card)' }}>
-                  <StrengthMeter
-                    score={score}
-                    previousScore={previousScore !== null && previousScore !== score ? previousScore : null}
-                  />
+                  <div style={{
+                    display: 'grid',
+                    gridTemplateColumns: isWide && dimensionScores ? 'auto 1fr' : '1fr',
+                    gap: 24,
+                    alignItems: 'start',
+                    marginBottom: dimensionScores ? 16 : 0,
+                  }}>
+                    {/* Left: radar chart */}
+                    {dimensionScores && (
+                      <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 8 }}>
+                        <RadarChart
+                          scores={dimensionScores}
+                          previousScores={overlayScores}
+                          size={radarSize}
+                          animated={!reducedMotion()}
+                        />
+                        {overlayScores && (
+                          <div style={{ display: 'flex', gap: 14, alignItems: 'center', justifyContent: 'center' }}>
+                            <span style={{ display: 'flex', alignItems: 'center', gap: 5, fontFamily: 'var(--font-ui)', fontSize: 11, color: '#888' }}>
+                              <span style={{ display: 'inline-block', width: 18, height: 2, background: '#D4A853', borderRadius: 1 }} />
+                              Current
+                            </span>
+                            <span style={{ display: 'flex', alignItems: 'center', gap: 5, fontFamily: 'var(--font-ui)', fontSize: 11, color: '#888' }}>
+                              <span style={{ display: 'inline-block', width: 18, height: 0, borderTop: '1.5px dashed rgba(212,168,83,0.5)' }} />
+                              Previous
+                            </span>
+                          </div>
+                        )}
+                      </div>
+                    )}
+                    {/* Right: strength meter */}
+                    <div>
+                      <StrengthMeter
+                        score={score}
+                        previousScore={previousScore !== null && previousScore !== score ? previousScore : null}
+                      />
+                    </div>
+                  </div>
+                  {/* Dimension bars (full width, below the grid) */}
+                  {dimensionScores && <DimensionBars scores={dimensionScores} />}
                 </div>
 
                 {/* Mode-specific cards */}

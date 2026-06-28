@@ -4,6 +4,7 @@ import { callGroq } from '../lib/groq'
 import { ATTACK_PROMPT } from '../lib/prompts'
 import { useSpeechRecognition } from '../hooks/useSpeechRecognition'
 import StrengthMeter from './StrengthMeter'
+import { RadarChart } from './RadarChart'
 
 const MAX_CHARS = 500
 
@@ -53,6 +54,14 @@ function ResultCard({ label, claim, result, isWinner }) {
   const score   = result?.strength_score ?? null
   const counter = result?.counterarguments?.[0] ?? null
 
+  // Extract or synthesise dimension scores
+  const rawDs = result?.dimension_scores
+  const dimScores = rawDs && typeof rawDs.logic === 'number'
+    ? rawDs
+    : score !== null
+      ? (() => { const fb = Math.round(score / 5); return { logic: fb, evidence: fb, clarity: fb, persuasion: fb, originality: fb } })()
+      : null
+
   return (
     <motion.div
       initial={{ opacity: 0, y: 16 }}
@@ -89,6 +98,16 @@ function ResultCard({ label, claim, result, isWinner }) {
           {claim}
         </p>
       </div>
+
+      {/* Radar chart — winner gets a subtle amber glow */}
+      {dimScores && (
+        <div style={{
+          display: 'flex', justifyContent: 'center',
+          filter: isWinner ? 'drop-shadow(0 0 10px rgba(212,168,83,0.35))' : 'none',
+        }}>
+          <RadarChart scores={dimScores} size={190} animated />
+        </div>
+      )}
 
       <StrengthMeter score={score} />
 
