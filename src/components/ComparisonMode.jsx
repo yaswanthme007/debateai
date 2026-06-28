@@ -1,7 +1,8 @@
-import { useState } from 'react'
+import { useState, useRef, useCallback } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { callGroq } from '../lib/groq'
 import { ATTACK_PROMPT } from '../lib/prompts'
+import { useSpeechRecognition } from '../hooks/useSpeechRecognition'
 import StrengthMeter from './StrengthMeter'
 
 const MAX_CHARS = 500
@@ -25,8 +26,31 @@ function Spinner() {
   )
 }
 
+function MicIcon({ size = 16 }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3Z"/>
+      <path d="M19 10v2a7 7 0 0 1-14 0v-2"/>
+      <line x1="12" x2="12" y1="19" y2="22"/>
+    </svg>
+  )
+}
+
+function MicOffIcon({ size = 16 }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <line x1="2" x2="22" y1="2" y2="22"/>
+      <path d="M18.89 13.23A7.12 7.12 0 0 0 19 12v-2"/>
+      <path d="M5 10v2a7 7 0 0 0 12 5"/>
+      <path d="M15 9.34V5a3 3 0 0 0-5.68-1.33"/>
+      <path d="M9 9v3a3 3 0 0 0 5.12 2.12"/>
+      <line x1="12" x2="12" y1="19" y2="22"/>
+    </svg>
+  )
+}
+
 function ResultCard({ label, claim, result, isWinner }) {
-  const score = result?.strength_score ?? null
+  const score   = result?.strength_score ?? null
   const counter = result?.counterarguments?.[0] ?? null
 
   return (
@@ -99,33 +123,83 @@ const LABEL_STYLE = {
   marginBottom: 8,
 }
 
-const TEXTAREA_BASE = {
-  flex: 1,
-  minHeight: 150,
-  resize: 'none',
-  padding: '12px 14px',
-  borderRadius: 8,
-  border: '1px solid var(--border-mid)',
-  background: 'var(--bg)',
-  color: 'var(--cream)',
-  fontFamily: 'var(--font-body)',
-  fontSize: 15,
-  lineHeight: 1.6,
-  outline: 'none',
-  transition: 'border-color 0.2s',
-  caretColor: 'var(--amber)',
-  width: '100%',
-  boxSizing: 'border-box',
-}
-
 export default function ComparisonMode({ apiKey }) {
   const [claimA, setClaimA] = useState('')
   const [claimB, setClaimB] = useState('')
-  const [results, setResults] = useState(null)
+  const [results, setResults]   = useState(null)
   const [isLoading, setIsLoading] = useState(false)
-  const [error, setError] = useState(null)
+  const [error, setError]       = useState(null)
+  const [interimA, setInterimA] = useState('')
+  const [interimB, setInterimB] = useState('')
+  const [voiceToast, setVoiceToast] = useState(null)
+
+  const toastTimerRef = useRef(null)
+
+  const showVoiceToast = useCallback((msg) => {
+    if (toastTimerRef.current) clearTimeout(toastTimerRef.current)
+    setVoiceToast(msg)
+    toastTimerRef.current = setTimeout(() => setVoiceToast(null), 2500)
+  }, [])
+
+  const speechA = useSpeechRecognition({
+    onTranscript: (text) => {
+      setClaimA(prev => (prev + (prev ? ' ' : '') + text).slice(0, MAX_CHARS))
+      setInterimA('')
+    },
+    onInterim: (text) => setInterimA(text),
+    onError: (type) => {
+      if (type === 'not-allowed') showVoiceToast('Microphone access denied. Check your browser permissions.')
+      else if (type === 'network') showVoiceToast('Voice input requires an internet connection')
+    },
+  })
+
+  const speechB = useSpeechRecognition({
+    onTranscript: (text) => {
+      setClaimB(prev => (prev + (prev ? ' ' : '') + text).slice(0, MAX_CHARS))
+      setInterimB('')
+    },
+    onInterim: (text) => setInterimB(text),
+    onError: (type) => {
+      if (type === 'not-allowed') showVoiceToast('Microphone access denied. Check your browser permissions.')
+      else if (type === 'network') showVoiceToast('Voice input requires an internet connection')
+    },
+  })
+
+  // Stop A if limit reached
+  if (speechA.isListening && claimA.length >= MAX_CHARS) {
+    speechA.stopListening()
+    showVoiceToast('Character limit reached')
+  }
+
+  // Stop B if limit reached
+  if (speechB.isListening && claimB.length >= MAX_CHARS) {
+    speechB.stopListening()
+    showVoiceToast('Character limit reached')
+  }
+
+  function toggleMicA() {
+    if (speechA.isListening) {
+      speechA.stopListening()
+      setInterimA('')
+    } else {
+      if (speechB.isListening) { speechB.stopListening(); setInterimB('') }
+      speechA.startListening()
+    }
+  }
+
+  function toggleMicB() {
+    if (speechB.isListening) {
+      speechB.stopListening()
+      setInterimB('')
+    } else {
+      if (speechA.isListening) { speechA.stopListening(); setInterimA('') }
+      speechB.startListening()
+    }
+  }
 
   async function compare() {
+    if (speechA.isListening) { speechA.stopListening(); setInterimA('') }
+    if (speechB.isListening) { speechB.stopListening(); setInterimB('') }
     if (!claimA.trim() || !claimB.trim() || isLoading) return
     setIsLoading(true)
     setError(null)
@@ -160,36 +234,153 @@ export default function ComparisonMode({ apiKey }) {
       ? scoreA > scoreB ? 'a' : scoreB > scoreA ? 'b' : 'tie'
       : null
 
+  // Build display values (finalized + interim)
+  const displayA = speechA.isListening && interimA
+    ? claimA + (claimA ? ' ' : '') + interimA
+    : claimA
+  const displayB = speechB.isListening && interimB
+    ? claimB + (claimB ? ' ' : '') + interimB
+    : claimB
+
   const canCompare = !!claimA.trim() && !!claimB.trim() && !isLoading
+
+  const textareaStyle = (speech) => ({
+    flex: 1,
+    minHeight: 150,
+    resize: 'none',
+    paddingTop: 12,
+    paddingLeft: 14,
+    paddingRight: speech.isSupported ? 48 : 14,
+    paddingBottom: speech.isSupported ? 44 : 12,
+    borderRadius: 8,
+    border: '1px solid',
+    borderColor: speech.isListening ? 'var(--amber)' : 'var(--border-mid)',
+    background: 'var(--bg)',
+    color: 'var(--cream)',
+    fontFamily: 'var(--font-body)',
+    fontSize: 15,
+    lineHeight: 1.6,
+    outline: 'none',
+    transition: 'border-color 0.2s',
+    caretColor: 'var(--amber)',
+    width: '100%',
+    boxSizing: 'border-box',
+  })
+
+  const micBtnStyle = (isListening) => ({
+    position: 'absolute', bottom: 6, right: 6,
+    width: 36, height: 36, borderRadius: '50%',
+    display: 'flex', alignItems: 'center', justifyContent: 'center',
+    cursor: 'pointer',
+    border: isListening ? '1.5px solid #D4A853' : '1.5px solid rgba(212,168,83,0.4)',
+    background: isListening ? '#D4A853' : 'transparent',
+    color: isListening ? '#1a1a1a' : '#D4A853',
+    transition: 'all 0.2s ease',
+    animation: isListening ? 'pulse-ring 1.5s ease-out infinite' : 'none',
+  })
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
-      {/* Two textareas — CSS grid forces equal width; flex column + flex:1 forces equal height */}
+      <style>{`
+        @keyframes pulse-ring {
+          0%   { box-shadow: 0 0 0 0 rgba(212,168,83,0.4); }
+          70%  { box-shadow: 0 0 0 10px rgba(212,168,83,0); }
+          100% { box-shadow: 0 0 0 0 rgba(212,168,83,0); }
+        }
+        @keyframes pulse-dot {
+          0%, 100% { opacity: 1; }
+          50%      { opacity: 0.4; }
+        }
+      `}</style>
+
+      {/* Two textareas — equal width via CSS grid; equal height via flex + alignItems:stretch */}
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem', alignItems: 'stretch' }}>
         {[
-          { label: 'Argument A', value: claimA, set: setClaimA, placeholder: 'Enter first argument…' },
-          { label: 'Argument B', value: claimB, set: setClaimB, placeholder: 'Enter second argument…' },
-        ].map(({ label, value, set, placeholder }) => (
+          {
+            label: 'Argument A', value: claimA, set: setClaimA,
+            placeholder: 'Enter first argument…',
+            speech: speechA, interim: interimA, setInterim: setInterimA,
+            display: displayA, toggle: toggleMicA,
+          },
+          {
+            label: 'Argument B', value: claimB, set: setClaimB,
+            placeholder: 'Enter second argument…',
+            speech: speechB, interim: interimB, setInterim: setInterimB,
+            display: displayB, toggle: toggleMicB,
+          },
+        ].map(({ label, set, placeholder, speech, setInterim, display, toggle }) => (
           <div key={label} style={{ display: 'flex', flexDirection: 'column' }}>
             <label style={LABEL_STYLE}>{label}</label>
-            <textarea
-              value={value}
-              onChange={e => set(e.target.value.slice(0, MAX_CHARS))}
-              placeholder={placeholder}
-              style={TEXTAREA_BASE}
-              onFocus={e => { e.target.style.borderColor = 'var(--amber-dim)' }}
-              onBlur={e => { e.target.style.borderColor = 'var(--border-mid)' }}
-            />
+            {/* Relative wrapper for absolute-positioned mic button */}
+            <div style={{ position: 'relative', flex: 1, display: 'flex', flexDirection: 'column' }}>
+              <textarea
+                value={display}
+                onChange={e => {
+                  if (speech.isListening) { speech.stopListening(); setInterim('') }
+                  set(e.target.value.slice(0, MAX_CHARS))
+                }}
+                placeholder={placeholder}
+                style={textareaStyle(speech)}
+                onFocus={e => { e.target.style.borderColor = speech.isListening ? 'var(--amber)' : 'var(--amber-dim)' }}
+                onBlur={e => { e.target.style.borderColor = speech.isListening ? 'var(--amber)' : 'var(--border-mid)' }}
+              />
+
+              {/* Listening label */}
+              {speech.isListening && (
+                <span style={{
+                  position: 'absolute', bottom: 48, right: 4,
+                  fontFamily: 'var(--font-ui)', fontSize: 10, color: 'var(--amber)',
+                  animation: 'pulse-dot 1.2s ease-in-out infinite',
+                  pointerEvents: 'none', userSelect: 'none', whiteSpace: 'nowrap',
+                }}>
+                  ● Listening…
+                </span>
+              )}
+
+              {/* Mic button */}
+              {speech.isSupported && (
+                <button
+                  type="button"
+                  onClick={toggle}
+                  aria-label={speech.isListening ? 'Stop voice recording' : 'Start voice input'}
+                  style={micBtnStyle(speech.isListening)}
+                  onMouseEnter={e => {
+                    if (!speech.isListening) {
+                      e.currentTarget.style.borderColor = '#D4A853'
+                      e.currentTarget.style.background  = 'rgba(212,168,83,0.1)'
+                    }
+                  }}
+                  onMouseLeave={e => {
+                    if (!speech.isListening) {
+                      e.currentTarget.style.borderColor = 'rgba(212,168,83,0.4)'
+                      e.currentTarget.style.background  = 'transparent'
+                    }
+                  }}
+                >
+                  {speech.isListening ? <MicOffIcon /> : <MicIcon />}
+                </button>
+              )}
+            </div>
             <span style={{
               fontFamily: 'var(--font-mono)', fontSize: 10, letterSpacing: '0.05em',
-              color: value.length > 450 ? 'var(--red-light)' : 'var(--muted)',
+              color: display.length > 450 ? 'var(--red-light)' : 'var(--muted)',
               marginTop: 5, textAlign: 'right',
             }}>
-              {value.length}/{MAX_CHARS}
+              {display.length}/{MAX_CHARS}
             </span>
           </div>
         ))}
       </div>
+
+      {/* Voice toast */}
+      {voiceToast && (
+        <div style={{
+          fontFamily: 'var(--font-ui)', fontSize: 12, letterSpacing: '0.03em',
+          color: 'var(--amber)', textAlign: 'center', padding: '2px 0',
+        }}>
+          {voiceToast}
+        </div>
+      )}
 
       {/* Compare button — centered below both textareas */}
       <div style={{ display: 'flex', justifyContent: 'center', marginTop: 4 }}>

@@ -1,7 +1,8 @@
-import { useState, useRef, useEffect, lazy, Suspense } from 'react'
+import { useState, useRef, useEffect, useCallback, lazy, Suspense } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { useDebateAI } from '../hooks/useDebateAI'
 import { useTypewriter } from '../hooks/useTypewriter'
+import { useSpeechRecognition } from '../hooks/useSpeechRecognition'
 import ModeSelector from './ModeSelector'
 import StrengthMeter from './StrengthMeter'
 import FallacyDetector from './FallacyDetector'
@@ -27,6 +28,31 @@ function reducedMotion() {
 }
 
 function dur(ms) { return reducedMotion() ? 0 : ms }
+
+// ─── Mic icons (inline SVG, no external dependency) ───────────────────────────
+
+function MicIcon({ size = 18 }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3Z"/>
+      <path d="M19 10v2a7 7 0 0 1-14 0v-2"/>
+      <line x1="12" x2="12" y1="19" y2="22"/>
+    </svg>
+  )
+}
+
+function MicOffIcon({ size = 18 }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <line x1="2" x2="22" y1="2" y2="22"/>
+      <path d="M18.89 13.23A7.12 7.12 0 0 0 19 12v-2"/>
+      <path d="M5 10v2a7 7 0 0 0 12 5"/>
+      <path d="M15 9.34V5a3 3 0 0 0-5.68-1.33"/>
+      <path d="M9 9v3a3 3 0 0 0 5.12 2.12"/>
+      <line x1="12" x2="12" y1="19" y2="22"/>
+    </svg>
+  )
+}
 
 // ─── Typewriter text ──────────────────────────────────────────────────────────
 
@@ -190,19 +216,45 @@ function Spinner() {
 export default function ArgumentArena({ apiKey, onNeedSettings }) {
   const { result, isLoading, error, mode, history, analyzeArgument, clearHistory, setMode } = useDebateAI()
 
-  const [claim, setClaim] = useState('')
+  const [claim, setClaim]           = useState('')
   const [compareMode, setCompareMode] = useState(false)
-  const [countdown, setCountdown] = useState(null)
+  const [countdown, setCountdown]   = useState(null)
+  const [interimText, setInterimText] = useState('')
+  const [voiceToast, setVoiceToast] = useState(null)
 
-  const textareaRef    = useRef(null)
+  const textareaRef     = useRef(null)
   const scrollAnchorRef = useRef(null)
+  const toastTimerRef   = useRef(null)
+
+  const showVoiceToast = useCallback((msg) => {
+    if (toastTimerRef.current) clearTimeout(toastTimerRef.current)
+    setVoiceToast(msg)
+    toastTimerRef.current = setTimeout(() => setVoiceToast(null), 2500)
+  }, [])
+
+  const speech = useSpeechRecognition({
+    onTranscript: (text) => {
+      setClaim(prev => (prev + (prev ? ' ' : '') + text).slice(0, MAX_CHARS))
+      setInterimText('')
+    },
+    onInterim: (text) => setInterimText(text),
+    onError: (type) => {
+      if (type === 'not-allowed') showVoiceToast('Microphone access denied. Check your browser permissions.')
+      else if (type === 'network') showVoiceToast('Voice input requires an internet connection')
+    },
+  })
+
+  // Textarea value shows finalized claim + live interim speech
+  const displayValue = speech.isListening && interimText
+    ? claim + (claim ? ' ' : '') + interimText
+    : claim
 
   useEffect(() => {
     const el = textareaRef.current
     if (!el) return
     el.style.height = 'auto'
     el.style.height = `${Math.min(el.scrollHeight, 300)}px`
-  }, [claim])
+  }, [displayValue])
 
   useEffect(() => {
     if (result && scrollAnchorRef.current) {
@@ -225,19 +277,57 @@ export default function ArgumentArena({ apiKey, onNeedSettings }) {
     if (error?.type === 'no_api_key') onNeedSettings?.()
   }, [error?.type, onNeedSettings])
 
-  function handleClaimChange(e) { setClaim(e.target.value.slice(0, MAX_CHARS)) }
+  // Stop recording when character limit is reached
+  useEffect(() => {
+    if (speech.isListening && claim.length >= MAX_CHARS) {
+      speech.stopListening()
+      setInterimText('')
+      showVoiceToast('Character limit reached')
+    }
+  }, [claim.length, speech, showVoiceToast])
+
+  // Stop recording when entering comparison mode
+  useEffect(() => {
+    if (compareMode && speech.isListening) {
+      speech.stopListening()
+      setInterimText('')
+    }
+  }, [compareMode, speech])
+
+  function toggleMic() {
+    if (speech.isListening) {
+      speech.stopListening()
+      setInterimText('')
+    } else {
+      speech.startListening()
+    }
+  }
+
+  function handleClaimChange(e) {
+    // Typing while recording stops the recording and takes typed value
+    if (speech.isListening) {
+      speech.stopListening()
+      setInterimText('')
+    }
+    setClaim(e.target.value.slice(0, MAX_CHARS))
+  }
 
   function handleKeyDown(e) {
     if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') { e.preventDefault(); submit() }
   }
 
   async function submit() {
+    if (speech.isListening) {
+      speech.stopListening()
+      setInterimText('')
+    }
     if (!claim.trim() || isLoading || countdown > 0) return
     if (!apiKey) { onNeedSettings?.(); return }
     await analyzeArgument(claim, mode, apiKey)
   }
 
   async function switchMode(newMode) {
+    if (speech.isListening) { speech.stopListening(); setInterimText('') }
     if (isLoading || countdown > 0) return
     if (!apiKey) { onNeedSettings?.(); return }
     setMode(newMode)
@@ -245,6 +335,7 @@ export default function ArgumentArena({ apiKey, onNeedSettings }) {
   }
 
   function handleClear() {
+    if (speech.isListening) { speech.stopListening(); setInterimText('') }
     setClaim('')
     clearHistory()
     if (textareaRef.current) textareaRef.current.style.height = '120px'
@@ -271,8 +362,12 @@ export default function ArgumentArena({ apiKey, onNeedSettings }) {
       {/* Mode selector */}
       <ModeSelector currentMode={mode} onModeChange={setMode} />
 
-      {/* Topic presets */}
-      <TopicPresets onSelect={topic => { setClaim(topic); textareaRef.current?.focus() }} />
+      {/* Topic presets — stop recording before filling preset */}
+      <TopicPresets onSelect={topic => {
+        if (speech.isListening) { speech.stopListening(); setInterimText('') }
+        setClaim(topic)
+        textareaRef.current?.focus()
+      }} />
 
       {/* Compare mode toggle */}
       <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
@@ -305,36 +400,52 @@ export default function ArgumentArena({ apiKey, onNeedSettings }) {
           {/* ── Input card ────────────────────────────────────────────────────── */}
           <div style={{ borderRadius: 10, border: '1px solid var(--border-mid)', padding: 20, background: 'var(--bg-card)', display: 'flex', flexDirection: 'column', gap: 14 }}>
             <div style={{ position: 'relative' }}>
+              <style>{`
+                textarea::placeholder { color: var(--muted); font-family: var(--font-ui); font-size: 14px; }
+                @keyframes pulse-ring {
+                  0%   { box-shadow: 0 0 0 0 rgba(212,168,83,0.4); }
+                  70%  { box-shadow: 0 0 0 12px rgba(212,168,83,0); }
+                  100% { box-shadow: 0 0 0 0 rgba(212,168,83,0); }
+                }
+                @keyframes pulse-dot {
+                  0%, 100% { opacity: 1; }
+                  50%      { opacity: 0.4; }
+                }
+              `}</style>
+
               <textarea
                 ref={textareaRef}
-                value={claim}
+                value={displayValue}
                 onChange={handleClaimChange}
                 onKeyDown={handleKeyDown}
                 placeholder="Enter any claim, opinion, or argument to analyze…"
                 style={{
                   width: '100%', minHeight: 120, maxHeight: 300, resize: 'none',
-                  padding: '14px 16px 32px',
+                  boxSizing: 'border-box',
+                  paddingTop: 14, paddingLeft: 16,
+                  paddingRight: speech.isSupported ? 56 : 16,
+                  paddingBottom: speech.isSupported ? 52 : 32,
                   borderRadius: 8, border: '1px solid',
-                  borderColor: 'var(--border-mid)',
+                  borderColor: speech.isListening ? 'var(--amber)' : 'var(--border-mid)',
                   background: 'var(--bg)', color: 'var(--cream)',
                   fontFamily: 'var(--font-body)', fontSize: 16, lineHeight: 1.6,
                   outline: 'none', transition: 'border-color 0.2s',
                   caretColor: 'var(--amber)',
                 }}
-                onFocus={e => e.target.style.borderColor = 'var(--amber-dim)'}
-                onBlur={e => e.target.style.borderColor = 'var(--border-mid)'}
+                onFocus={e => { e.target.style.borderColor = speech.isListening ? 'var(--amber)' : 'var(--amber-dim)' }}
+                onBlur={e => { e.target.style.borderColor = speech.isListening ? 'var(--amber)' : 'var(--border-mid)' }}
               />
-              <style>{`textarea::placeholder { color: var(--muted); font-family: var(--font-ui); font-size: 14px; }`}</style>
 
+              {/* Clear button — hidden while recording to avoid conflicting state */}
               <AnimatePresence>
-                {claim && (
+                {claim && !speech.isListening && (
                   <motion.button
                     key="clear-btn"
                     initial={{ opacity: 0, scale: 0.8 }}
                     animate={{ opacity: 1, scale: 1 }}
                     exit={{ opacity: 0, scale: 0.8 }}
                     transition={{ duration: dur(0.12) }}
-                    onClick={() => { setClaim(''); textareaRef.current?.focus() }}
+                    onClick={() => { setClaim(''); setInterimText(''); textareaRef.current?.focus() }}
                     aria-label="Clear text"
                     style={{
                       position: 'absolute', top: 10, right: 10,
@@ -351,21 +462,90 @@ export default function ArgumentArena({ apiKey, onNeedSettings }) {
                 )}
               </AnimatePresence>
 
+              {/* Character counter — shifts left when mic button is present */}
               <span
                 style={{
-                  position: 'absolute', bottom: 10, right: 14,
+                  position: 'absolute',
+                  bottom: speech.isSupported ? 18 : 10,
+                  right: speech.isSupported ? 56 : 14,
                   fontFamily: 'var(--font-mono)', fontSize: 10, letterSpacing: '0.05em',
-                  color: claim.length > 450 ? 'var(--red-light)' : 'var(--muted)',
+                  color: displayValue.length > 450 ? 'var(--red-light)' : 'var(--muted)',
                   pointerEvents: 'none', userSelect: 'none',
                 }}
               >
-                {claim.length}/{MAX_CHARS}
+                {displayValue.length}/{MAX_CHARS}
               </span>
+
+              {/* "Listening…" label — appears above the mic button while recording */}
+              {speech.isListening && (
+                <span
+                  style={{
+                    position: 'absolute', bottom: 56, right: 6,
+                    fontFamily: 'var(--font-ui)', fontSize: 11, color: 'var(--amber)',
+                    animation: 'pulse-dot 1.2s ease-in-out infinite',
+                    pointerEvents: 'none', userSelect: 'none', whiteSpace: 'nowrap',
+                  }}
+                >
+                  ● Listening…
+                </span>
+              )}
+
+              {/* Mic button — only rendered when browser supports Web Speech API */}
+              {speech.isSupported && (
+                <button
+                  type="button"
+                  onClick={toggleMic}
+                  aria-label={speech.isListening ? 'Stop voice recording' : 'Start voice input'}
+                  style={{
+                    position: 'absolute', bottom: 8, right: 8,
+                    width: 40, height: 40, borderRadius: '50%',
+                    display: 'flex', alignItems: 'center', justifyContent: 'center',
+                    cursor: 'pointer',
+                    border: speech.isListening
+                      ? '1.5px solid #D4A853'
+                      : '1.5px solid rgba(212,168,83,0.4)',
+                    background: speech.isListening ? '#D4A853' : 'transparent',
+                    color: speech.isListening ? '#1a1a1a' : '#D4A853',
+                    transition: 'all 0.2s ease',
+                    animation: speech.isListening ? 'pulse-ring 1.5s ease-out infinite' : 'none',
+                  }}
+                  onMouseEnter={e => {
+                    if (!speech.isListening) {
+                      e.currentTarget.style.borderColor = '#D4A853'
+                      e.currentTarget.style.background  = 'rgba(212,168,83,0.1)'
+                    }
+                  }}
+                  onMouseLeave={e => {
+                    if (!speech.isListening) {
+                      e.currentTarget.style.borderColor = 'rgba(212,168,83,0.4)'
+                      e.currentTarget.style.background  = 'transparent'
+                    }
+                  }}
+                >
+                  {speech.isListening ? <MicOffIcon size={16} /> : <MicIcon size={16} />}
+                </button>
+              )}
             </div>
+
+            {/* Voice toast — mic permission errors, character limit, etc. */}
+            {voiceToast && (
+              <div
+                style={{
+                  fontFamily: 'var(--font-ui)', fontSize: 12, letterSpacing: '0.03em',
+                  color: 'var(--amber)', textAlign: 'center', padding: '2px 0',
+                }}
+              >
+                {voiceToast}
+              </div>
+            )}
 
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap' }}>
               <span style={{ fontFamily: 'var(--font-ui)', fontSize: 12, color: 'var(--muted)', letterSpacing: '0.04em' }}>
-                {wordCount > 0 ? `${wordCount} word${wordCount !== 1 ? 's' : ''}` : 'Type or pick a topic above'}
+                {wordCount > 0
+                  ? `${wordCount} word${wordCount !== 1 ? 's' : ''}`
+                  : speech.isSupported
+                    ? 'Type, speak, or pick a topic above'
+                    : 'Type or pick a topic above'}
               </span>
 
               <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
